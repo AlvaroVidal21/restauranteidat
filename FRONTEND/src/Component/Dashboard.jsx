@@ -259,7 +259,7 @@ const Dashboard = () => {
             <div className="stat-grid" style={{ marginBottom: 'var(--spacing-lg)' }}>
                 <div className="stat-card" style={{ background: 'linear-gradient(135deg, #0f1117, #171b23)', color: '#f6f7fb', border: 'none' }}>
                     <div className="stat-label" style={{ color: '#9aa0b5' }}>Reservas (filtro)</div>
-                    <div className="stat-value" style={{ fontSize: '2.4rem' }}>{filteredStats.total}</div>
+                    <div className="stat-value" style={{ color: 'white', fontSize: '2.4rem' }}>{filteredStats.total}</div>
                 </div>
                 <div className="stat-card" style={{ background: '#fff8ec', border: '1px solid #f1e0c2' }}>
                     <div className="stat-label" style={{ color: '#a67c27' }}>Para hoy</div>
