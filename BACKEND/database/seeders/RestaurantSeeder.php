@@ -269,5 +269,96 @@ class RestaurantSeeder extends Seeder
                 $exp
             );
         }
+
+        // Seed Reservas de ejemplo (visible en dashboard)
+        $reservas = [
+            [
+                'cliente_correo' => 'aliaga@gmail.com',
+                'mesa_codigo' => 'MESA-003',
+                'fecha' => '2025-12-10',
+                'horainicio' => '18:00',
+                'horafin' => '20:00',
+                'cantidad' => 2,
+                'motivo' => 'Cena romántica aniversario',
+                'tipopago' => 'Tarjeta',
+                'estado' => 1,
+                'experiencia' => 'Cena Romántica',
+                'plato' => null,
+            ],
+            [
+                'cliente_correo' => 'admin@restaurant.com',
+                'mesa_codigo' => 'MESA-005',
+                'fecha' => '2025-12-11',
+                'horainicio' => '14:00',
+                'horafin' => '16:00',
+                'cantidad' => 4,
+                'motivo' => 'Briefing con proveedores',
+                'tipopago' => 'Cortesía',
+                'estado' => 1,
+                'experiencia' => null,
+                'plato' => 'Lomo Saltado',
+            ],
+            [
+                'cliente_correo' => 'aliaga@gmail.com',
+                'mesa_codigo' => 'MESA-007',
+                'fecha' => '2025-12-12',
+                'horainicio' => '20:00',
+                'horafin' => '22:00',
+                'cantidad' => 6,
+                'motivo' => 'Celebración familiar',
+                'tipopago' => 'Efectivo',
+                'estado' => 1,
+                'experiencia' => 'Experiencia Andina',
+                'plato' => null,
+            ],
+            [
+                'cliente_correo' => 'admin@restaurant.com',
+                'mesa_codigo' => 'MESA-001',
+                'fecha' => '2025-12-09',
+                'horainicio' => '16:00',
+                'horafin' => '18:00',
+                'cantidad' => 1,
+                'motivo' => 'Cata interna de bebidas',
+                'tipopago' => 'Interno',
+                'estado' => 0,
+                'experiencia' => null,
+                'plato' => 'Causa de Langostinos',
+            ],
+        ];
+
+        foreach ($reservas as $reserva) {
+            $clienteId = DB::table('cliente')->where('correo', $reserva['cliente_correo'])->value('idcliente');
+            $mesaId = DB::table('mesa')->where('codigoinventario', $reserva['mesa_codigo'])->value('idmesa');
+            $platoId = $reserva['plato']
+                ? DB::table('platos')->where('nombreplato', $reserva['plato'])->value('idplato')
+                : null;
+            $expId = $reserva['experiencia']
+                ? DB::table('experiencias')->where('nombre', $reserva['experiencia'])->value('idexperiencia')
+                : null;
+
+            if (!$clienteId || !$mesaId) {
+                continue;
+            }
+
+            DB::table('reserva')->updateOrInsert(
+                [
+                    'cliente' => $clienteId,
+                    'mesa' => $mesaId,
+                    'fechareserva' => $reserva['fecha'],
+                    'horainicio' => $reserva['horainicio'],
+                ],
+                [
+                    'horafin' => $reserva['horafin'],
+                    'cantidadpersonas' => $reserva['cantidad'],
+                    'motivo' => $reserva['motivo'],
+                    'tipopago' => $reserva['tipopago'] ?? 'Efectivo',
+                    'fechasistema' => now(),
+                    'usuario' => 1,
+                    'estadoreserva' => $reserva['estado'],
+                    'plato_id' => $platoId,
+                    'experiencia_id' => $expId,
+                ]
+            );
+        }
     }
 }
