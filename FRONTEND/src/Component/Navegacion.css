@@ -1,0 +1,118 @@
+/* === NAVIGATION BAR === */
+.lab-navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 5%;
+    height: 80px;
+    background: var(--color-white);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.lab-brand {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-decoration: none;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.lab-nav-links {
+    display: flex;
+    gap: 2.5rem;
+    list-style: none;
+    align-items: center;
+}
+
+.lab-nav-link {
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--color-text-light);
+    text-decoration: none;
+    position: relative;
+    padding: 8px 0;
+    transition: var(--transition-normal);
+}
+
+.lab-nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: var(--color-gold);
+    transition: width var(--transition-normal);
+}
+
+.lab-nav-link:hover,
+.lab-nav-link.active {
+    color: var(--color-primary);
+}
+
+.lab-nav-link:hover::after,
+.lab-nav-link.active::after {
+    width: 100%;
+}
+
+/* === USER GREETING === */
+.user-greeting {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-style: italic;
+    color: var(--color-text);
+}
+
+/* === LOGOUT BUTTONS === */
+.logout-btn {
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 10px 20px;
+    background: transparent;
+    border: 1px solid var(--color-border-dark);
+    color: var(--color-text-light);
+    cursor: pointer;
+    transition: var(--transition-normal);
+}
+
+.logout-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.admin-logout-btn {
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+}
+
+.admin-logout-btn:hover {
+    background: var(--color-danger);
+    color: var(--color-white);
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+    .lab-navbar {
+        padding: 0 var(--spacing-md);
+        height: 70px;
+    }
+
+    .lab-nav-links {
+        gap: 1.5rem;
+    }
+
+    .lab-nav-link {
+        font-size: 10px;
+    }
+}

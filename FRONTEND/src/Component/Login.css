@@ -1,0 +1,115 @@
+.login-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    background-color: #f4f7f6;
+    padding: 2rem;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 450px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    padding: 3rem;
+    border-top: 4px solid var(--primary-color, #007bff);
+    text-align: center;
+}
+
+.login-header h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--primary-color, #007bff);
+    margin-bottom: 0.5rem;
+}
+
+.login-header p {
+    color: #6c757d;
+    margin-bottom: 2.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.75rem;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    font-size: 1rem;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box; /* Added to ensure padding doesn't affect width */
+
+}
+
+.form-input:focus {
+    border-color: var(--primary-color, #007bff);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+    outline: none;
+}
+
+.login-button {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border-radius: 8px;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.login-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+.login-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+
+.login-footer {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.toggle-admin-btn {
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    transition: color 0.2s;
+}
+
+.toggle-admin-btn:hover {
+    color: var(--primary-color, #007bff);
+}
+
+.register-link small {
+    color: #6c757d;
+}
+
+.register-link a {
+    color: var(--primary-color, #007bff);
+    font-weight: 600;
+    text-decoration: none;
+    transition: text-decoration 0.2s;
+}
+
+.register-link a:hover {
+    text-decoration: underline;
+}
