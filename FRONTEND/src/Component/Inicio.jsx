@@ -60,7 +60,7 @@ export const Inicio = () => {
               </p>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="menu-price">${parseFloat(exp.precio).toFixed(2)}</span>
-                <button className="btn-lab btn-lab-sm" onClick={() => navigate('/reservar')}>Reservar</button>
+                <button className="btn-lab btn-lab-sm" onClick={() => navigate(`/reservar?exp=${exp.idexperiencia}`)}>Reservar</button>
               </div>
             </article>
           ))}

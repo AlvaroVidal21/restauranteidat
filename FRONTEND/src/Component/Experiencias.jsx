@@ -98,7 +98,7 @@ const Experiencias = () => {
             </p>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
               <span className="menu-price">${parseFloat(exp.precio).toFixed(2)}</span>
-              <button className="btn-lab btn-lab-sm" onClick={() => navigate('/reservar')}>Reservar</button>
+              <button className="btn-lab btn-lab-sm" onClick={() => navigate(`/reservar?exp=${exp.idexperiencia}`)}>Reservar</button>
             </div>
             <div className="summary-box" style={{ marginBottom: 0 }}>
               <ul style={{ margin: 0, paddingLeft: '18px', color: 'var(--color-text-light)', fontSize: '13px', lineHeight: 1.6 }}>

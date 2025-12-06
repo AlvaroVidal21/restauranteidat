@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const Reservar = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [step, setStep] = useState(1);
     const [platos, setPlatos] = useState([]);
     const [experiencias, setExperiencias] = useState([]);
@@ -34,6 +35,8 @@ const Reservar = () => {
         opcionales: [],
         opcionalesNombres: []
     });
+    const [preselectedExpId, setPreselectedExpId] = useState(null);
+    const [preselectApplied, setPreselectApplied] = useState(false);
 
     const timeSlots = [
         { label: '2:00 PM', value: '14:00' },
@@ -123,8 +126,30 @@ const Reservar = () => {
 
         fetch('http://127.0.0.1:8000/api/experiencias')
             .then(res => res.json())
-            .then(data => setExperiencias(data));
+            .then(data => setExperiencias(Array.isArray(data) ? data : []))
+            .catch(() => setExperiencias([]));
     }, [navigate]);
+
+    // Lee preselección de experiencia desde query (?exp=ID) o state (expId)
+    useEffect(() => {
+        const params = new URLSearchParams(location.search || '');
+        const fromQuery = params.get('exp');
+        const fromState = location.state && location.state.expId ? location.state.expId : null;
+        const chosen = fromState || fromQuery;
+        if (chosen) {
+            setPreselectedExpId(String(chosen));
+        }
+    }, [location]);
+
+    // Aplica preselección cuando experiencias estén cargadas
+    useEffect(() => {
+        if (!preselectedExpId || preselectApplied || experiencias.length === 0) return;
+        const match = experiencias.find(exp => String(exp.idexperiencia) === String(preselectedExpId));
+        if (match) {
+            handleSelectExperience(match);
+            setPreselectApplied(true);
+        }
+    }, [preselectedExpId, preselectApplied, experiencias]);
 
     const clean = (text) => (text || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu, '');
 
@@ -218,6 +243,10 @@ const Reservar = () => {
     };
 
     const handleSubmit = async () => {
+        if (!formData.mesa) {
+            Swal.fire('Selecciona una mesa', 'Debes elegir una mesa antes de confirmar.', 'warning');
+            return;
+        }
         if (user?.dni === 'admin') {
             const adminOwnId = user.idcliente;
             if (!formData.cliente) {
@@ -352,8 +381,17 @@ const Reservar = () => {
                         <div className="actions-inline" style={{ marginTop: 'var(--spacing-lg)' }}>
                             <button
                                 className="btn-lab btn-lab-primary"
-                                disabled={!formData.experiencia_id || (displayDrinks.length > 0 && !formData.drink_id)}
-                                onClick={() => setStep(2)}
+                                onClick={() => {
+                                    if (!formData.experiencia_id) {
+                                        Swal.fire('Selecciona una experiencia', 'Debes elegir una experiencia para continuar.', 'warning');
+                                        return;
+                                    }
+                                    if (displayDrinks.length > 0 && !formData.drink_id) {
+                                        Swal.fire('Selecciona una bebida', 'Elige una bebida para acompañar tu experiencia.', 'warning');
+                                        return;
+                                    }
+                                    setStep(2);
+                                }}
                             >
                                 Continuar a opcionales
                             </button>
@@ -665,7 +703,7 @@ const Reservar = () => {
 
                         <div className="actions-inline">
                             <button className="btn-lab" onClick={() => setStep(3)}>Atrás</button>
-                            <button className="btn-lab btn-lab-primary" onClick={handleSubmit} disabled={!formData.mesa || (user?.dni === 'admin' && !formData.cliente)}>
+                            <button className="btn-lab btn-lab-primary" onClick={handleSubmit}>
                                 Confirmar Reserva
                             </button>
                         </div>
