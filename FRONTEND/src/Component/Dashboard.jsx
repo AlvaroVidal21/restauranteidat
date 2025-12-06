@@ -11,6 +11,7 @@ const Dashboard = () => {
     const [editReserva, setEditReserva] = useState(null);
     const [viewOpen, setViewOpen] = useState(false);
     const [viewReserva, setViewReserva] = useState(null);
+    const [quickFilter, setQuickFilter] = useState('all');
 
     const timeSlots = [
         { label: '2:00 PM', value: '14:00' },
@@ -89,6 +90,10 @@ const Dashboard = () => {
     };
 
     const filteredReservas = reservas.filter((reserva) => {
+        if (quickFilter === 'today') {
+            const today = new Date().toISOString().split('T')[0];
+            if (reserva.fechareserva !== today) return false;
+        }
         if (!dateRange.start && !dateRange.end) return true;
         const date = new Date(reserva.fechareserva);
         if (dateRange.start && date < new Date(dateRange.start)) return false;
@@ -168,6 +173,15 @@ const Dashboard = () => {
         setEditReserva(prev => ({ ...prev, [field]: value }));
     };
 
+    const computeStatus = (reserva) => {
+        const now = new Date();
+        const dateStr = reserva.fechareserva || '';
+        const timeStr = reserva.horainicio || '00:00';
+        const date = new Date(`${dateStr}T${timeStr}`);
+        if (isNaN(date)) return 'Pendiente';
+        return date >= now ? 'Pendiente' : 'Concluida';
+    };
+
     const saveReservation = async () => {
         if (!editReserva) return;
         try {
@@ -216,38 +230,45 @@ const Dashboard = () => {
         <div className="lab-container">
             <div className="section-header" style={{ marginBottom: 'var(--spacing-lg)' }}>
                 <p className="menu-meta">Panel Ejecutivo</p>
-                <h2 style={{ marginBottom: '8px' }}>PANEL DE CONTROL FINANCIERO Y OPERATIVO</h2>
-                <p className="text-muted" style={{ maxWidth: '680px', margin: '0 auto' }}>
-                    Monitoree reservas, flujos y capacidad para reaccionar rápido en servicio.
+                <h2 style={{ marginBottom: '8px', letterSpacing: '0.5px' }}>Dashboard Operativo & Ingresos</h2>
+                <p className="text-muted" style={{ maxWidth: '720px', margin: '0 auto' }}>
+                    Monitorea reservas, aforo y estimados de ingresos; filtra rápido por fecha o solo para hoy.
                 </p>
             </div>
 
-            <div className="stat-grid">
-                <div className="stat-card">
-                    <div className="stat-value">{filteredStats.total}</div>
-                    <div className="stat-label">Reservas (filtro)</div>
+            <div className="stat-grid" style={{ marginBottom: 'var(--spacing-lg)' }}>
+                <div className="stat-card" style={{ background: 'linear-gradient(135deg, #0f1117, #171b23)', color: '#f6f7fb', border: 'none' }}>
+                    <div className="stat-label" style={{ color: '#9aa0b5' }}>Reservas (filtro)</div>
+                    <div className="stat-value" style={{ fontSize: '2.4rem' }}>{filteredStats.total}</div>
+                </div>
+                <div className="stat-card" style={{ background: '#fff8ec', border: '1px solid #f1e0c2' }}>
+                    <div className="stat-label" style={{ color: '#a67c27' }}>Para hoy</div>
+                    <div className="stat-value" style={{ color: '#8b5e15' }}>{filteredStats.today}</div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-value">{filteredStats.today}</div>
-                    <div className="stat-label">Para hoy</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-value">${filteredFinancials.total.toFixed(2)}</div>
                     <div className="stat-label">Ingresos Estimados</div>
+                    <div className="stat-value">${filteredFinancials.total.toFixed(2)}</div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-value">${filteredFinancials.avg.toFixed(2)}</div>
                     <div className="stat-label">Ticket Promedio</div>
+                    <div className="stat-value">${filteredFinancials.avg.toFixed(2)}</div>
                 </div>
             </div>
 
             <div className="lab-card table-card">
-                <div style={{ padding: 'var(--spacing-lg)', display: 'flex', justifyContent: 'space-between', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+                <div style={{ padding: 'var(--spacing-lg)', display: 'flex', justifyContent: 'space-between', gap: 'var(--spacing-md)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                     <div>
                         <h3 style={{ marginBottom: 'var(--spacing-xs)' }}>Bitácora de Reservas</h3>
-                        <p className="text-muted" style={{ margin: 0 }}>Filtre por rango de fechas para acotar la vista.</p>
+                        <p className="text-muted" style={{ margin: 0 }}>Filtra por rango, o usa el atajo “Solo hoy”.</p>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <button
+                            className={`pill-tab ${quickFilter === 'today' ? 'pill-tab-active' : ''}`}
+                            onClick={() => setQuickFilter(quickFilter === 'today' ? 'all' : 'today')}
+                            style={{ borderRadius: '12px', padding: '10px 14px' }}
+                        >
+                            Solo hoy
+                        </button>
                         <div>
                             <label style={{ marginBottom: '4px', display: 'block' }}>Desde</label>
                             <input type="date" className="lab-input" value={dateRange.start} onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })} />
@@ -256,15 +277,15 @@ const Dashboard = () => {
                             <label style={{ marginBottom: '4px', display: 'block' }}>Hasta</label>
                             <input type="date" className="lab-input" value={dateRange.end} onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })} />
                         </div>
-                        {(dateRange.start || dateRange.end) && (
-                            <button className="btn-lab btn-lab-sm" onClick={() => setDateRange({ start: '', end: '' })}>
-                                Limpiar
+                        {(dateRange.start || dateRange.end || quickFilter === 'today') && (
+                            <button className="btn-lab btn-lab-sm" onClick={() => { setDateRange({ start: '', end: '' }); setQuickFilter('all'); }}>
+                                Limpiar filtros
                             </button>
                         )}
                     </div>
                 </div>
-                <div className="table-scroll">
-                    <table className="lab-table">
+                <div className="table-scroll" style={{ borderTop: '1px solid var(--color-border)' }}>
+                    <table className="lab-table" style={{ minWidth: '920px' }}>
                         <thead>
                             <tr>
                                 <th>ID</th>
@@ -273,6 +294,7 @@ const Dashboard = () => {
                                 <th>Experiencia (Plato)</th>
                                 <th>Fecha</th>
                                 <th>Hora</th>
+                                <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -289,6 +311,11 @@ const Dashboard = () => {
                                     </td>
                                     <td>{reserva.fechareserva}</td>
                                     <td>{reserva.horainicio} - {reserva.horafin}</td>
+                                    <td>
+                                        <span className={`status-chip ${computeStatus(reserva) === 'Pendiente' ? 'status-pending' : 'status-done'}`}>
+                                            {computeStatus(reserva)}
+                                        </span>
+                                    </td>
                                     <td>
                                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                             <button className="btn-lab btn-lab-ghost" style={{ fontSize: '0.8rem', padding: '5px 10px' }} onClick={() => openView(reserva)}>
