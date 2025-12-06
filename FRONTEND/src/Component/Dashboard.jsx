@@ -337,14 +337,16 @@ const Dashboard = () => {
                                         </span>
                                     </td>
                                     <td>
-                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                            <button className="btn-lab btn-lab-ghost" style={{ fontSize: '0.8rem', padding: '5px 10px' }} onClick={() => openView(reserva)}>
-                                                Ver
-                                            </button>
-                                            <button className="btn-lab btn-lab-secondary" style={{ fontSize: '0.8rem', padding: '5px 10px' }} onClick={() => openDetail(reserva)}>
-                                                Editar
-                                            </button>
-                                            <button className="btn-lab btn-lab-danger" style={{ fontSize: '0.8rem', padding: '5px 10px' }} onClick={() => deleteReservation(reserva.idreserva)}>
+                                        <div className="action-stack">
+                                            <div className="action-row">
+                                                <button className="action-pill action-pill-view" onClick={() => openView(reserva)}>
+                                                    Ver
+                                                </button>
+                                                <button className="action-pill action-pill-edit" onClick={() => openDetail(reserva)}>
+                                                    Editar
+                                                </button>
+                                            </div>
+                                            <button className="action-pill action-pill-cancel" onClick={() => deleteReservation(reserva.idreserva)}>
                                                 Cancelar
                                             </button>
                                         </div>

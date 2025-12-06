@@ -761,3 +761,79 @@ label {
     border-color: rgba(26, 26, 26, 0.15);
     color: var(--color-text-muted);
 }
+
+/* === TABLE ACTION PILL STACK === */
+.action-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 150px;
+}
+
+.action-row {
+    display: flex;
+    gap: 8px;
+}
+
+.action-pill {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 140ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.action-pill:focus-visible {
+    outline: 2px solid rgba(0, 0, 0, 0.2);
+    outline-offset: 2px;
+}
+
+.action-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.action-pill-view {
+    background: #edf9f2;
+    border-color: #b7e4c3;
+    color: #1b7a46;
+}
+
+.action-pill-view:hover {
+    background: #e1f3ea;
+    border-color: #8fd2a8;
+}
+
+.action-pill-edit {
+    background: #fff2e5;
+    border-color: #f9c9a4;
+    color: #9f4f05;
+}
+
+.action-pill-edit:hover {
+    background: #ffe7d1;
+    border-color: #f3b07f;
+}
+
+.action-pill-cancel {
+    width: 100%;
+    background: #fff2f2;
+    border-color: #efb5af;
+    color: #a82317;
+}
+
+.action-pill-cancel:hover {
+    background: #ffe1df;
+    border-color: #e49088;
+}
+
+@media (max-width: 640px) {
+    .action-row {
+        flex-direction: column;
+    }
+}
