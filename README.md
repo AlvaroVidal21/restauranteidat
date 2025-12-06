@@ -36,7 +36,6 @@ El seeder agrega clientes, mesas, platos, experiencias y reservas reales para qu
 
 Credenciales rapidas:
 - `admin@restaurant.com` / `123`
-- `aliaga@gmail.com` / `password`
 
 ## 3. Frontend React
 Abre otra terminal:
