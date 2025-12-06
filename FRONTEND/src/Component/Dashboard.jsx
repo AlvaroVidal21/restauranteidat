@@ -170,6 +170,10 @@ const Dashboard = () => {
             setEditReserva(prev => ({ ...prev, horainicio: value, horafin: `${endH}:${m || '00'}` }));
             return;
         }
+        // Bloquear cambios de aforo si es romántica
+        if (field === 'cantidadpersonas' && isRomantic(editReserva)) {
+            return;
+        }
         setEditReserva(prev => ({ ...prev, [field]: value }));
     };
 
@@ -182,6 +186,20 @@ const Dashboard = () => {
         return date >= now ? 'Pendiente' : 'Concluida';
     };
 
+    const clean = (text) => (text || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu, '');
+    const isRomantic = (reserva) => clean(reserva?.experiencia_info?.nombre || reserva?.experiencia?.nombre || '')?.includes('romant');
+    const capacity = (mesa) => Number(mesa?.sillas ?? mesa?.cantidadsillas ?? 0);
+    const mesaMatches = (mesa, personas, romantica) => {
+        const cap = capacity(mesa);
+        if (romantica) {
+            return cap === 2 && (mesa.tipo === 'pareja' || mesa.tipo === 'romantica');
+        }
+        if (personas <= 1) {
+            return cap >= 1 && (mesa.tipo === 'solitario' || mesa.tipo == null);
+        }
+        return cap >= personas && (mesa.tipo === 'familiar' || mesa.tipo == null || mesa.tipo === 'pareja' || mesa.tipo === 'romantica');
+    };
+
     const saveReservation = async () => {
         if (!editReserva) return;
         try {
@@ -189,11 +207,13 @@ const Dashboard = () => {
             const [h, m] = (editReserva.horainicio || '').split(':');
             const endH = (parseInt(h || '0', 10) + 2).toString().padStart(2, '0');
 
+            const romantica = isRomantic(editReserva);
+            const personasFinal = romantica ? 2 : editReserva.cantidadpersonas;
             const payload = {
                 fechareserva: editReserva.fechareserva,
                 horainicio: editReserva.horainicio,
                 horafin: `${endH}:${m || '00'}`,
-                cantidadpersonas: editReserva.cantidadpersonas,
+                cantidadpersonas: personasFinal,
                 mesa: editReserva.mesa || editReserva.mesa_id || editReserva.idmesa,
                 motivo: editReserva.motivo
             };
@@ -383,16 +403,34 @@ const Dashboard = () => {
                             </div>
                             <div>
                                 <label>Mesa</label>
-                                <select className="lab-input" value={editReserva.mesa || ''} onChange={(e) => handleEditChange('mesa', e.target.value)}>
-                                    <option value="">-- Seleccione Mesa --</option>
-                                    {mesas.map(m => (
-                                        <option key={m.idmesa} value={m.idmesa}>{m.nombremessa} ({m.cantidadsillas} sillas) - {m.ubicacionmesa}</option>
-                                    ))}
-                                </select>
+                                {(() => {
+                                    const romantica = isRomantic(editReserva);
+                                    const personas = romantica ? 2 : Number(editReserva.cantidadpersonas || 1);
+                                    const opciones = mesas.filter(m => mesaMatches(m, personas, romantica));
+                                    return (
+                                        <select className="lab-input" value={editReserva.mesa || ''} onChange={(e) => handleEditChange('mesa', e.target.value)}>
+                                            <option value="">-- Seleccione Mesa --</option>
+                                            {opciones.map(m => (
+                                                <option key={m.idmesa} value={m.idmesa}>{m.nombremessa} ({m.cantidadsillas || m.sillas} sillas) - {m.ubicacionmesa || m.zona}</option>
+                                            ))}
+                                        </select>
+                                    );
+                                })()}
                             </div>
                             <div>
                                 <label>Personas</label>
-                                <input type="number" className="lab-input" min="1" max="20" value={editReserva.cantidadpersonas || 1} onChange={(e) => handleEditChange('cantidadpersonas', e.target.value)} />
+                                <input
+                                    type="number"
+                                    className="lab-input"
+                                    min="1"
+                                    max="20"
+                                    value={isRomantic(editReserva) ? 2 : (editReserva.cantidadpersonas || 1)}
+                                    onChange={(e) => handleEditChange('cantidadpersonas', e.target.value)}
+                                    disabled={isRomantic(editReserva)}
+                                />
+                                {isRomantic(editReserva) && (
+                                    <p className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>Cena romántica: aforo fijo en 2 y solo mesas de pareja.</p>
+                                )}
                             </div>
                             <div>
                                 <label>Motivo / notas</label>
