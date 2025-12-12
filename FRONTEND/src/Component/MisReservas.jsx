@@ -90,19 +90,15 @@ const MisReservas = () => {
     if (!motivo) return;
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/reservas/${id}`, {
-        method: 'DELETE', // Or PUT to update status
+      const response = await fetch(`http://127.0.0.1:8000/api/reservas/${id}/estado`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ motivo_cancelacion: motivo }),
-        // Note: DELETE usually doesn't have body, but Laravel might accept it or we should use PUT /cancel
-        // If the backend destroy method handles it, fine. If not, we might need a specific route.
-        // Given previous code was DELETE, I'll stick to it, but typically DELETE implies hard delete.
-        // The previous controller had destroy. The new one has destroy.
+        body: JSON.stringify({ estado: 'cancelada', motivo_cancelacion: motivo }),
       });
 
       if (response.ok) {
-        setReservas((prev) => prev.filter((r) => r.id !== id));
-        Swal.fire('Reserva cancelada', 'Hemos registrado tu cancelación.', 'success');
+        setReservas((prev) => prev.map((r) => (r.id === id ? { ...r, estado: 'cancelada' } : r)));
+        Swal.fire('Reserva cancelada', 'Tu reserva fue cancelada y queda registrada en tu historial.', 'success');
       } else {
         const errorData = await response.json();
         Swal.fire('No se pudo cancelar', errorData.message || 'Intente nuevamente.', 'error');

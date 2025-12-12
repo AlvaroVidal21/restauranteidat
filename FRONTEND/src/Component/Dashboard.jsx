@@ -51,7 +51,7 @@ const Dashboard = () => {
     const cancelReservation = async (id) => {
         const result = await Swal.fire({
             title: 'Cancelar Reserva',
-            text: 'Esta accion eliminara la reserva.',
+            text: 'Esta acción cancelará la reserva (no se eliminará).',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
@@ -61,12 +61,14 @@ const Dashboard = () => {
 
         if (result.isConfirmed) {
             try {
-                const resp = await fetch(`http://127.0.0.1:8000/api/reservas/${id}`, {
-                    method: 'DELETE'
+                const resp = await fetch(`http://127.0.0.1:8000/api/reservas/${id}/estado`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ estado: 'cancelada' })
                 });
                 if (resp.ok) {
                     fetchReservations();
-                    Swal.fire('Cancelada', 'La reserva ha sido eliminada.', 'success');
+                    Swal.fire('Cancelada', 'La reserva fue cancelada (queda registrada).', 'success');
                 } else {
                     Swal.fire('Error', 'No se pudo cancelar la reserva.', 'error');
                 }
