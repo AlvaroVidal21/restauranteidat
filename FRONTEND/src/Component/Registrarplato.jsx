@@ -8,7 +8,8 @@ export const Registrarplato = () => {
     const [formData, setFormData] = useState({
         nombre: '',
         categoria: '',
-        precio: ''
+        precio: '',
+        descripcion: ''
     });
 
     const [errors, setErrors] = useState({});
@@ -30,6 +31,7 @@ export const Registrarplato = () => {
         const payload = {
             ...formData,
             precio: formData.precio ? parseFloat(formData.precio) : 0,
+            descripcion: formData.descripcion?.trim() ? formData.descripcion : null,
         };
 
         try {
@@ -51,7 +53,7 @@ export const Registrarplato = () => {
                 }).then(() => {
                     navigate('/listarplatos');
                 });
-                setFormData({ nombre: '', categoria: '', precio: '' });
+                setFormData({ nombre: '', categoria: '', precio: '', descripcion: '' });
             } else {
                 const joinedErrors = result?.errors
                     ? Object.values(result.errors).flat().join(' \n')
@@ -138,6 +140,20 @@ export const Registrarplato = () => {
                             required
                         />
                         {errors.precio && <small style={{ color: 'var(--color-danger)', fontSize: '12px' }}>{errors.precio[0]}</small>}
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
+                        <label htmlFor="descripcion">Descripción</label>
+                        <textarea
+                            id="descripcion"
+                            name="descripcion"
+                            className="lab-input"
+                            rows={4}
+                            value={formData.descripcion}
+                            onChange={handleChange}
+                            placeholder="Descripción del plato (opcional)"
+                        />
+                        {errors.descripcion && <small style={{ color: 'var(--color-danger)', fontSize: '12px' }}>{errors.descripcion[0]}</small>}
                     </div>
 
                     <div className="actions-inline" style={{ justifyContent: 'space-between' }}>

@@ -6,6 +6,7 @@ import Swal from 'sweetalert2';
 const Dashboard = () => {
     const [reservas, setReservas] = useState([]);
     const [mesas, setMesas] = useState([]);
+    const [availableMesas, setAvailableMesas] = useState([]);
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [quickFilter, setQuickFilter] = useState('all');
     const [detailOpen, setDetailOpen] = useState(false);
@@ -174,6 +175,23 @@ const Dashboard = () => {
         return 'status-pending';
     };
 
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime())) {
+            // Si viene como '2025-12-17T00:00:00.000000Z', tomar solo la parte de fecha
+            const short = (dateStr || '').slice(0, 10);
+            const d2 = new Date(short);
+            return Number.isNaN(d2.getTime()) ? short : d2.toLocaleDateString('es-PE');
+        }
+        return d.toLocaleDateString('es-PE');
+    };
+
+    const formatTime = (timeStr) => {
+        if (!timeStr) return '-';
+        return timeStr.slice(0, 5);
+    };
+
     // Abrir modal para ver detalles
     const openView = (reserva) => {
         setViewReserva(reserva);
@@ -187,8 +205,14 @@ const Dashboard = () => {
 
     // Abrir modal para editar
     const openEdit = (reserva) => {
-        setEditReserva({ ...reserva });
+        setEditReserva({ ...reserva, fecha: (reserva.fecha || '').slice(0, 10) });
         setDetailOpen(true);
+        // Cargar mesas libres para la fecha/hora actual de la reserva
+        if (reserva.fecha && reserva.hora_inicio) {
+            fetchAvailableMesas(reserva.fecha, reserva.hora_inicio, reserva.cantidad_personas, reserva.mesa_id);
+        } else {
+            setAvailableMesas([]);
+        }
     };
 
     const closeEdit = () => {
@@ -200,6 +224,35 @@ const Dashboard = () => {
     const saveReservation = async () => {
         if (!editReserva) return;
 
+        const personas = Number(editReserva.cantidad_personas || 0);
+        const selectedMesa = mesas.find(m => String(m.id) === String(editReserva.mesa_id));
+        const expName = (getExperiencia(editReserva) || '').toLowerCase();
+
+        if (!editReserva.fecha || !editReserva.hora_inicio || !editReserva.mesa_id) {
+            Swal.fire('Faltan datos', 'Selecciona fecha, hora y mesa antes de guardar.', 'warning');
+            return;
+        }
+
+        if (!selectedMesa) {
+            Swal.fire('Mesa requerida', 'Debes escoger una mesa válida.', 'warning');
+            return;
+        }
+
+        if (selectedMesa.capacidad < personas) {
+            Swal.fire('Capacidad insuficiente', 'La mesa elegida no tiene suficientes sillas para esta reserva.', 'error');
+            return;
+        }
+
+        if (['pareja', 'romantica'].includes(selectedMesa.tipo) && personas !== 2) {
+            Swal.fire('Regla de pareja', 'Las mesas de tipo pareja/romántica solo permiten 2 personas.', 'error');
+            return;
+        }
+
+        if (expName.includes('romant') && personas !== 2) {
+            Swal.fire('Regla de experiencia', 'Las experiencias románticas solo admiten 2 personas.', 'error');
+            return;
+        }
+
         try {
             const resp = await fetch(`http://127.0.0.1:8000/api/reservas/${editReserva.id}`, {
                 method: 'PUT',
@@ -208,9 +261,7 @@ const Dashboard = () => {
                     fecha: editReserva.fecha,
                     hora_inicio: editReserva.hora_inicio,
                     hora_fin: editReserva.hora_fin,
-                    cantidad_personas: editReserva.cantidad_personas,
-                    mesa_id: editReserva.mesa_id,
-                    motivo: editReserva.motivo
+                    mesa_id: editReserva.mesa_id
                 })
             });
 
@@ -235,9 +286,32 @@ const Dashboard = () => {
             const [h, m] = (value || '').split(':');
             const endH = (parseInt(h || '0', 10) + 2).toString().padStart(2, '0');
             setEditReserva(prev => ({ ...prev, hora_inicio: value, hora_fin: `${endH}:${m || '00'}` }));
+            if (editReserva?.fecha) fetchAvailableMesas(editReserva.fecha, value, editReserva.cantidad_personas, editReserva.mesa_id);
             return;
         }
+        if (field === 'fecha' && editReserva?.hora_inicio) {
+            fetchAvailableMesas(value, editReserva.hora_inicio, editReserva.cantidad_personas, editReserva.mesa_id);
+        }
         setEditReserva(prev => ({ ...prev, [field]: value }));
+    };
+
+    // Trae mesas libres con suficiente capacidad para la cantidad requerida
+    const fetchAvailableMesas = async (fecha, hora, cantidadPersonas, currentMesaId) => {
+        try {
+            const resp = await fetch('http://127.0.0.1:8000/api/check-availability', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fecha, hora, cantidad_personas: Number(cantidadPersonas) })
+            });
+            const data = await resp.json();
+            const libres = Array.isArray(data)
+                ? data.filter(m => !m.reservada || String(m.id) === String(currentMesaId))
+                : [];
+            setAvailableMesas(libres);
+        } catch (error) {
+            console.error('Error obteniendo disponibilidad', error);
+            setAvailableMesas([]);
+        }
     };
 
     return (
@@ -332,8 +406,8 @@ const Dashboard = () => {
                                         <td>{getClienteName(reserva)}</td>
                                         <td>{getMesaName(reserva)}</td>
                                         <td>{getExperiencia(reserva)}</td>
-                                        <td>{reserva.fecha || '-'}</td>
-                                        <td>{reserva.hora_inicio || '-'}</td>
+                                        <td>{formatDate(reserva.fecha)}</td>
+                                        <td>{formatTime(reserva.hora_inicio)}</td>
                                         <td>
                                             <span className={`status-chip ${getEstadoClass(estado)}`}>
                                                 {getEstadoLabel(estado)}
@@ -371,9 +445,9 @@ const Dashboard = () => {
 
             {/* Modal de edicion */}
             {detailOpen && editReserva && (
-                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '16px' }}>
-                    <div className="lab-card" style={{ width: '540px', maxWidth: '95%', padding: 'var(--spacing-lg)', position: 'relative' }}>
-                        <button onClick={closeEdit} style={{ position: 'absolute', top: '12px', right: '12px', border: 'none', background: 'transparent', fontSize: '18px', cursor: 'pointer' }}>X</button>
+                <div className="modal-overlay" role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '16px' }}>
+                    <div className="lab-card" style={{ width: '560px', maxWidth: '96%', padding: 'var(--spacing-lg)', position: 'relative', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.18)' }}>
+                        <button onClick={closeEdit} aria-label="Cerrar" style={{ position: 'absolute', top: '12px', right: '12px', border: 'none', background: 'transparent', fontSize: '18px', cursor: 'pointer' }}>X</button>
                         <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Editar Reserva #{editReserva.id}</h3>
 
                         <div style={{ marginBottom: 'var(--spacing-md)' }}>
@@ -398,15 +472,19 @@ const Dashboard = () => {
                             <label>Mesa</label>
                             <select className="lab-input" value={editReserva.mesa_id || ''} onChange={(e) => handleEditChange('mesa_id', e.target.value)}>
                                 <option value="">-- Seleccione --</option>
-                                {mesas.map(m => (
+                                {(availableMesas.length ? availableMesas : mesas).map(m => (
                                     <option key={m.id} value={m.id}>{m.nombre} ({m.capacidad} sillas) - {m.ubicacion}</option>
                                 ))}
                             </select>
+                            <p className="text-muted" style={{ fontSize: '12px', marginTop: '6px' }}>Solo se muestran mesas libres y con las sillas necesarias para la reserva.</p>
                         </div>
 
                         <div style={{ marginBottom: 'var(--spacing-md)' }}>
                             <label>Personas</label>
-                            <input type="number" className="lab-input" min="1" max="20" value={editReserva.cantidad_personas || 1} onChange={(e) => handleEditChange('cantidad_personas', e.target.value)} />
+                            <div className="lab-input" style={{ background: '#f7f8fb', color: '#333', pointerEvents: 'none' }}>
+                                {editReserva.cantidad_personas || 1} (solo lectura)
+                            </div>
+                            <p className="text-muted" style={{ fontSize: '12px', marginTop: '6px' }}>Para cambiar la cantidad de personas, crea una nueva reserva.</p>
                         </div>
 
                         <div className="actions-inline" style={{ marginTop: 'var(--spacing-lg)' }}>
@@ -419,9 +497,9 @@ const Dashboard = () => {
 
             {/* Modal de visualizacion */}
             {viewOpen && viewReserva && (
-                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '16px' }}>
-                    <div className="lab-card" style={{ width: '580px', maxWidth: '95%', padding: 'var(--spacing-lg)', position: 'relative' }}>
-                        <button onClick={closeView} style={{ position: 'absolute', top: '12px', right: '12px', border: 'none', background: 'transparent', fontSize: '18px', cursor: 'pointer' }}>X</button>
+                <div className="modal-overlay" role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '16px' }}>
+                    <div className="lab-card" style={{ width: '580px', maxWidth: '96%', padding: 'var(--spacing-lg)', position: 'relative', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.18)' }}>
+                        <button onClick={closeView} aria-label="Cerrar" style={{ position: 'absolute', top: '12px', right: '12px', border: 'none', background: 'transparent', fontSize: '18px', cursor: 'pointer' }}>X</button>
                         <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Reserva #{viewReserva.id}</h3>
 
                         <div className="summary-box" style={{ marginBottom: 'var(--spacing-md)' }}>
@@ -436,7 +514,7 @@ const Dashboard = () => {
                                 </div>
                                 <div>
                                     <span className="menu-meta">Fecha y Hora</span>
-                                    <p style={{ margin: 0 }}>{viewReserva.fecha} - {viewReserva.hora_inicio}</p>
+                                    <p style={{ margin: 0 }}>{formatDate(viewReserva.fecha)} - {formatTime(viewReserva.hora_inicio)}</p>
                                 </div>
                                 <div>
                                     <span className="menu-meta">Personas</span>

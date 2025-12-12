@@ -9,7 +9,8 @@ const EditarPlato = () => {
   const [formData, setFormData] = useState({
     nombre: "",
     categoria: "",
-    precio: ""
+    precio: "",
+    descripcion: ""
   });
 
   const [loading, setLoading] = useState(true);
@@ -28,7 +29,8 @@ const EditarPlato = () => {
           setFormData({
             nombre: data.nombre,
             categoria: data.categoria,
-            precio: data.precio || ""
+            precio: data.precio || "",
+            descripcion: data.descripcion || ""
           });
         } else {
           Swal.fire({
@@ -63,6 +65,7 @@ const EditarPlato = () => {
     const payload = {
       ...formData,
       precio: formData.precio ? parseFloat(formData.precio) : 0,
+      descripcion: formData.descripcion?.trim() ? formData.descripcion : null,
     };
 
     try {
@@ -164,6 +167,20 @@ const EditarPlato = () => {
                 setFormData({ ...formData, precio: e.target.value })
               }
               required
+            />
+          </div>
+
+          <div style={{ marginBottom: '30px' }}>
+            <label htmlFor="descripcion">DESCRIPCIÓN:</label>
+            <textarea
+              id="descripcion"
+              className="lab-input"
+              rows={4}
+              value={formData.descripcion}
+              onChange={(e) =>
+                setFormData({ ...formData, descripcion: e.target.value })
+              }
+              placeholder="Descripción del plato (opcional)"
             />
           </div>
 

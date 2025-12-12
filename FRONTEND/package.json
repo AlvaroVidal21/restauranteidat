@@ -22,6 +22,7 @@
     "vite": "^6.0.1"
   },
   "scripts": {
+    "dev": "vite dev",
     "start": "vite dev",
     "build": "vite build",
     "preview": "vite preview"

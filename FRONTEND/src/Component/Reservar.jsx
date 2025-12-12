@@ -16,6 +16,7 @@ const Reservar = () => {
     const [clientesList, setClientesList] = useState([]);
     const [showAllDrinks, setShowAllDrinks] = useState(false);
     const [opcionalesFiltro, setOpcionalesFiltro] = useState('todo');
+    const [clientFocus, setClientFocus] = useState(false);
 
     const [formData, setFormData] = useState({
         experiencia_id: null,
@@ -28,6 +29,7 @@ const Reservar = () => {
         motivo: 'Experiencia Gastronómica',
         selectedItemName: '',
         selectedItemPrice: 0,
+        drinkPrice: 0,
         notas: '',
         // Detalles Consumo
         drink_id: null,
@@ -110,11 +112,12 @@ const Reservar = () => {
             return;
         }
         const parsedUser = JSON.parse(storedUser);
+        const isAdminUser = parsedUser.dni === 'admin' || parsedUser.dni === '00000000' || parsedUser.id === 1;
         setUser(parsedUser);
-        // Correctly set cliente_id, assuming user.id is correct. If old user object has idcliente, use that.
-        setFormData(prev => ({ ...prev, cliente_id: parsedUser.dni === 'admin' ? '' : (parsedUser.id || parsedUser.idcliente) }));
+        // Admin siempre debe seleccionar cliente manualmente
+        setFormData(prev => ({ ...prev, cliente_id: isAdminUser ? '' : (parsedUser.id || parsedUser.idcliente) }));
 
-        if (parsedUser.dni === 'admin' || parsedUser.id === 1) {
+        if (isAdminUser) {
             fetch('http://127.0.0.1:8000/api/clientes')
                 .then(res => res.json())
                 .then(data => setClientesList(data))
@@ -168,7 +171,8 @@ const Reservar = () => {
         setFormData(prev => ({
             ...prev,
             drink_id: drink.id || drink.idplato,
-            drinkName: drink.nombre || drink.nombreplato
+            drinkName: drink.nombre || drink.nombreplato,
+            drinkPrice: parseFloat(drink.precio || 0)
         }));
     };
 
@@ -285,6 +289,11 @@ const Reservar = () => {
             precio_unitario: formData.selectedItemPrice
         };
 
+        const extrasTotal = formData.opcionales.reduce((acc, id) => {
+            const p = platos.find(pl => pl.id === id);
+            return acc + (p ? parseFloat(p.precio) : 0);
+        }, 0);
+
         const payload = {
             cliente_id: finalClienteId,
             mesa_id: formData.mesa_id,
@@ -294,7 +303,7 @@ const Reservar = () => {
             cantidad_personas: formData.cantidadpersonas,
             motivo: formData.motivo,
             detalles_consumo: detalles,
-            total: (parseFloat(formData.selectedItemPrice) * formData.cantidadpersonas)
+            total: parseFloat(formData.selectedItemPrice) + parseFloat(formData.drinkPrice || 0) + extrasTotal
         };
 
         try {
@@ -494,19 +503,40 @@ const Reservar = () => {
                         </div>
 
                         {/* Persona Selector Logic */}
-                        <div className="pill-row" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
-                            {personaOptions.map(opt => (
-                                <button
-                                    key={opt.key}
-                                    type="button"
-                                    disabled={isRomanticSelected && opt.key !== 'pareja'}
-                                    className={`pill-tab ${personaTipo === opt.key ? 'pill-tab-active' : ''}`}
-                                    onClick={() => setPersonaTipo(opt.key)}
-                                >
-                                    {opt.label} ({opt.hint})
-                                </button>
-                            ))}
+                        <div className="persona-grid">
+                            {personaOptions.map(opt => {
+                                const selected = personaTipo === opt.key;
+                                const disabledChoice = isRomanticSelected && opt.key !== 'pareja';
+                                const pillClasses = [
+                                    'persona-pill',
+                                    selected ? 'is-selected' : '',
+                                    disabledChoice ? 'is-disabled' : ''
+                                ].join(' ').trim();
+                                return (
+                                    <button
+                                        key={opt.key}
+                                        type="button"
+                                        disabled={disabledChoice}
+                                        aria-pressed={selected}
+                                        aria-disabled={disabledChoice}
+                                        className={pillClasses}
+                                        onClick={() => !disabledChoice && setPersonaTipo(opt.key)}
+                                    >
+                                        <span className="persona-icon">
+                                            <opt.Icon />
+                                        </span>
+                                        <span className="persona-copy">
+                                            <span className="persona-title">{opt.label}</span>
+                                            <span className="persona-hint">{opt.hint}</span>
+                                        </span>
+                                        {disabledChoice && <span className="persona-badge">Bloqueado</span>}
+                                    </button>
+                                );
+                            })}
                         </div>
+                        {isRomanticSelected && (
+                            <p style={{ fontSize: '12px', color: '#a67c2e', marginTop: '6px' }}>La experiencia romántica fija el modo pareja para preservar la atmósfera.</p>
+                        )}
                         {personaTipo === 'familiar' && (
                             <input type="number" className="lab-input" min="3" max="12" value={familiarCount} onChange={e => setFamiliarCount(e.target.value)} />
                         )}
@@ -531,7 +561,7 @@ const Reservar = () => {
                             {formData.drinkName && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                                     <span>{formData.drinkName} (Bebida)</span>
-                                    <span style={{ color: 'var(--color-primary)' }}>Incluido</span>
+                                    <span>${parseFloat(formData.drinkPrice || 0).toFixed(2)}</span>
                                 </div>
                             )}
                             {formData.opcionales.length > 0 && (
@@ -548,31 +578,58 @@ const Reservar = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                 <span>Total Estimado:</span>
                                 <span>
-                                    ${(
-                                        parseFloat(formData.selectedItemPrice) +
-                                        formData.opcionales.reduce((acc, id) => {
+                                    ${(() => {
+                                        const extrasTotal = formData.opcionales.reduce((acc, id) => {
                                             const p = platos.find(pl => pl.id === id);
                                             return acc + (p ? parseFloat(p.precio) : 0);
-                                        }, 0)
-                                    ).toFixed(2)}
+                                        }, 0);
+                                        return (
+                                            parseFloat(formData.selectedItemPrice) +
+                                            parseFloat(formData.drinkPrice || 0) +
+                                            extrasTotal
+                                        ).toFixed(2);
+                                    })()}
                                 </span>
                             </div>
                         </div>
 
 
                         {(user?.dni === 'admin' || user?.dni === '00000000' || user?.id === 1) && (
-                            <div style={{ marginBottom: 'var(--spacing-md)', padding: '15px', background: '#f9f9f9', border: '1px solid #eee', borderRadius: '8px' }}>
-                                <label style={{ color: 'var(--color-gold)', fontWeight: 'bold' }}>Reservar para el Cliente (Admin)</label>
-                                <select
-                                    className="lab-input"
-                                    style={{ border: !formData.cliente_id ? '2px solid red' : '1px solid #ddd' }}
-                                    value={formData.cliente_id}
-                                    onChange={(e) => setFormData({ ...formData, cliente_id: e.target.value })}
-                                >
-                                    <option value="">-- SELECCIONAR CLIENTE OBLIGATORIO --</option>
-                                    {clientesList.map(c => <option key={c.id || c.idcliente} value={c.id || c.idcliente}>{c.nombres} - {c.dni}</option>)}
-                                </select>
-                                {!formData.cliente_id && <small style={{ color: 'red' }}>Debe seleccionar un cliente.</small>}
+                            <div className="admin-client-card">
+                                <div className="admin-client-header">
+                                    <label>Reservar para el cliente</label>
+                                    <span>Obligatorio para admin</span>
+                                </div>
+                                {(() => {
+                                    const hasClient = !!formData.cliente_id;
+                                    const stateLabel = hasClient ? 'Listo' : 'Pendiente';
+                                    const shellClasses = [
+                                        'admin-client-shell',
+                                        hasClient ? 'is-filled' : 'is-empty',
+                                        clientFocus ? 'is-focus' : ''
+                                    ].join(' ').trim();
+                                    return (
+                                        <div className={shellClasses} data-state={stateLabel}>
+                                            <select
+                                                className="admin-client-select"
+                                                value={formData.cliente_id}
+                                                onChange={(e) => setFormData({ ...formData, cliente_id: e.target.value })}
+                                                onFocus={() => setClientFocus(true)}
+                                                onBlur={() => setClientFocus(false)}
+                                                aria-invalid={!hasClient}
+                                            >
+                                                <option value="">Elegir cliente...</option>
+                                                {clientesList.map(c => (
+                                                    <option key={c.id || c.idcliente} value={c.id || c.idcliente}>{c.nombres} · DNI {c.dni}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    );
+                                })()}
+                                {formData.cliente_id
+                                    ? <small className="admin-client-hint ok">Cliente listo: puedes confirmar.</small>
+                                    : <small className="admin-client-hint">Selecciona el cliente antes de confirmar.</small>
+                                }
                             </div>
                         )}
 
@@ -580,8 +637,7 @@ const Reservar = () => {
                             <label style={{ margin: 0 }}>Seleccione Mesa</label>
                             {mesasDisponibles.length > 0 && (
                                 <select
-                                    className="lab-input"
-                                    style={{ width: 'auto', padding: '5px 10px', fontSize: '14px', marginBottom: 0 }}
+                                    className="filter-select"
                                     value={zonaFiltro}
                                     onChange={(e) => setZonaFiltro(e.target.value)}
                                 >

@@ -144,10 +144,10 @@ const GestionMesas = () => {
                 <div className="table-scroll">
                     <table className="lab-table">
                         <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Nombre</th>
-                                <th>Capacidad</th>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Nombre</th>
+                                        <th>Sillas</th>
                                 <th>Ubicación</th>
                                 <th>Tipo</th>
                                 <th>Estado</th>
@@ -159,7 +159,7 @@ const GestionMesas = () => {
                                 <tr key={mesa.id}>
                                     <td>{mesa.codigo || mesa.id}</td>
                                     <td>{mesa.nombre}</td>
-                                    <td>{mesa.capacidad} pax</td>
+                                    <td>{mesa.capacidad} sillas</td>
                                     <td>{mesa.ubicacion}</td>
                                     <td>{mesa.tipo}</td>
                                     <td>
@@ -192,8 +192,8 @@ const GestionMesas = () => {
             </div>
 
             {modalOpen && (
-                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
-                    <div className="lab-card" style={{ width: '500px', maxWidth: '90%', padding: '30px' }}>
+                <div className="modal-overlay" role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+                    <div className="lab-card" style={{ width: '520px', maxWidth: '96%', padding: '28px', borderRadius: '12px', boxShadow: '0 8px 28px rgba(0,0,0,0.18)' }}>
                         <h3 style={{ marginBottom: '20px' }}>{editMesa ? 'Editar Mesa' : 'Nueva Mesa'}</h3>
                         <div className="form-grid" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             <div>
@@ -201,7 +201,7 @@ const GestionMesas = () => {
                                 <input className="lab-input" value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} placeholder="Ej: Mesa 1" />
                             </div>
                             <div>
-                                <label>Capacidad (Personas)</label>
+                                <label>Sillas</label>
                                 <input type="number" className="lab-input" value={formData.capacidad} onChange={e => setFormData({ ...formData, capacidad: e.target.value })} placeholder="Ej: 4" />
                             </div>
                             <div>

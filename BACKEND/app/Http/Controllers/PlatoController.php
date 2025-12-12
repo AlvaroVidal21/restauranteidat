@@ -19,7 +19,8 @@ class PlatoController extends Controller
             $request->validate([
                 'nombre' => 'required|string|max:100|unique:platos,nombre',
                 'categoria' => 'required|string',
-                'precio' => 'required|numeric'
+                'precio' => 'required|numeric',
+                'descripcion' => 'nullable|string|max:1000'
             ]);
 
             $plato = Plato::create([
@@ -70,10 +71,16 @@ class PlatoController extends Controller
         $request->validate([
             'nombre' => 'required|string|max:100',
             'categoria' => 'required',
-            'precio' => 'required|numeric'
+            'precio' => 'required|numeric',
+            'descripcion' => 'nullable|string|max:1000'
         ]);
 
-        $plato->update($request->all());
+        $plato->update([
+            'nombre' => $request->nombre,
+            'categoria' => $request->categoria,
+            'precio' => $request->precio,
+            'descripcion' => $request->descripcion ?? null,
+        ]);
 
         return response()->json(['message' => 'Plato actualizado correctamente', 'data' => $plato], 200);
     }

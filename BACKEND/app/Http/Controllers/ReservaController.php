@@ -28,6 +28,29 @@ class ReservaController extends Controller
             'detalles_consumo' => 'nullable|array'
         ]);
 
+        // Enforce romantic experience rule: if experiencia indicates 'romant' then cantidad_personas must be 2
+        $detalles = $request->input('detalles_consumo', []);
+        $experienciaNombre = mb_strtolower($detalles['experiencia'] ?? '');
+        if ($experienciaNombre !== '' && mb_stripos($experienciaNombre, 'romant') !== false) {
+            if (intval($request->cantidad_personas) !== 2) {
+                return response()->json(['message' => 'Las experiencias románticas solo permiten reservas para 2 personas.'], 422);
+            }
+        }
+
+        // Validate mesa capacity and type constraints
+        $mesa = Mesa::find($request->mesa_id);
+        if (!$mesa) {
+            return response()->json(['message' => 'Mesa no encontrada.'], 422);
+        }
+
+        if ($mesa->capacidad < intval($request->cantidad_personas)) {
+            return response()->json(['message' => 'La mesa no tiene suficientes sillas para la cantidad solicitada.'], 422);
+        }
+
+        if (in_array($mesa->tipo, ['pareja', 'romantica']) && intval($request->cantidad_personas) !== 2) {
+            return response()->json(['message' => 'Las mesas de tipo pareja/romántica solo permiten 2 personas.'], 422);
+        }
+
         // Check availability logic
         $exists = Reserva::where('mesa_id', $request->mesa_id)
             ->where('fecha', $request->fecha)
@@ -115,7 +138,43 @@ class ReservaController extends Controller
         $reserva = Reserva::find($id);
         if (!$reserva) return response()->json(['message' => 'No encontrada'], 404);
 
-        $reserva->update($request->all());
+        // Allow only editing of mesa and fecha/hora (no cambios arbitrarios de cantidad_personas o detalles)
+        $allowed = $request->only(['mesa_id', 'fecha', 'hora_inicio', 'hora_fin']);
+
+        if (isset($allowed['mesa_id'])) {
+            $newMesa = Mesa::find($allowed['mesa_id']);
+            if (!$newMesa) return response()->json(['message' => 'Mesa no encontrada'], 422);
+
+            // Ensure mesa capacity suits the existing reservation cantidad_personas
+            if ($newMesa->capacidad < intval($reserva->cantidad_personas)) {
+                return response()->json(['message' => 'La nueva mesa no tiene suficientes sillas para la reserva.'], 422);
+            }
+
+            if (in_array($newMesa->tipo, ['pareja', 'romantica']) && intval($reserva->cantidad_personas) !== 2) {
+                return response()->json(['message' => 'No puede asignarse una mesa de tipo pareja a una reserva con diferente número de personas.'], 422);
+            }
+        }
+
+        // If time or mesa changes, check availability excluding current reservation id
+        $fecha = $allowed['fecha'] ?? $reserva->fecha;
+        $horaInicio = $allowed['hora_inicio'] ?? $reserva->hora_inicio;
+        $horaFin = $allowed['hora_fin'] ?? $reserva->hora_fin;
+        $mesaIdToCheck = $allowed['mesa_id'] ?? $reserva->mesa_id;
+
+        $conflict = Reserva::where('mesa_id', $mesaIdToCheck)
+            ->where('id', '!=', $reserva->id)
+            ->where('fecha', $fecha)
+            ->where(function ($query) use ($horaInicio, $horaFin) {
+                $query->where('hora_inicio', '<', $horaFin)
+                      ->where('hora_fin', '>', $horaInicio);
+            })
+            ->exists();
+
+        if ($conflict) {
+            return response()->json(['message' => 'La mesa está ocupada en el horario seleccionado.'], 422);
+        }
+
+        $reserva->update($allowed);
         return response()->json(['message' => 'Actualizada', 'data' => $reserva]);
     }
 
