@@ -7,7 +7,7 @@ const EditarPlato = () => {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    nombreplato: "",
+    nombre: "",
     categoria: "",
     precio: ""
   });
@@ -26,7 +26,7 @@ const EditarPlato = () => {
 
         if (response.ok) {
           setFormData({
-            nombreplato: data.nombreplato,
+            nombre: data.nombre,
             categoria: data.categoria,
             precio: data.precio || ""
           });
@@ -118,13 +118,14 @@ const EditarPlato = () => {
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '20px' }}>
-            <label htmlFor="nombreplato">NOMBRE DEL PLATO:</label>
+            <label htmlFor="nombre">NOMBRE DEL PLATO:</label>
             <input
               type="text"
+              id="nombre"
               className="lab-input"
-              value={formData.nombreplato}
+              value={formData.nombre}
               onChange={(e) =>
-                setFormData({ ...formData, nombreplato: e.target.value })
+                setFormData({ ...formData, nombre: e.target.value })
               }
               required
               autoComplete="off"

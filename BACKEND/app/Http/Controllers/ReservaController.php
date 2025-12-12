@@ -11,72 +11,54 @@ class ReservaController extends Controller
 {
     public function index()
     {
-        $reservas = Reserva::with(['clienteInfo', 'mesaInfo', 'platoInfo', 'experienciaInfo'])->get();
+        // Eager load relationships
+        $reservas = Reserva::with(['cliente', 'mesa'])->get(); 
         return response()->json($reservas, 200);
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'cliente' => 'required',
-            'mesa' => 'required',
-            'fechareserva' => 'required|date',
-            'horainicio' => 'required',
-            'horafin' => 'required',
-            'cantidadpersonas' => 'required|integer',
-            'plato_id' => 'nullable',
-            'experiencia_id' => 'nullable',
-            'drink_id' => 'nullable|integer',
-            'drink_name' => 'nullable|string|max:150',
-            'opcionales' => 'array|nullable',
-            'opcionales_nombres' => 'array|nullable',
-            'extras' => 'array|nullable'
+            'cliente_id' => 'required|exists:clientes,id',
+            'mesa_id' => 'required|exists:mesas,id',
+            'fecha' => 'required|date',
+            'hora_inicio' => 'required',
+            'hora_fin' => 'required',
+            'cantidad_personas' => 'required|integer|min:1',
+            'detalles_consumo' => 'nullable|array'
         ]);
 
-        if (empty($request->plato_id) && empty($request->experiencia_id)) {
-            return response()->json(['message' => 'Debe seleccionar un plato o experiencia'], 422);
-        }
-
-
-        $exists = Reserva::where('mesa', $request->mesa)
-            ->where('fechareserva', $request->fechareserva)
+        // Check availability logic
+        $exists = Reserva::where('mesa_id', $request->mesa_id)
+            ->where('fecha', $request->fecha)
             ->where(function ($query) use ($request) {
-                $query->whereBetween('horainicio', [$request->horainicio, $request->horafin])
-                      ->orWhereBetween('horafin', [$request->horainicio, $request->horafin])
+                $query->whereBetween('hora_inicio', [$request->hora_inicio, $request->hora_fin])
+                      ->orWhereBetween('hora_fin', [$request->hora_inicio, $request->hora_fin])
                       ->orWhere(function ($q) use ($request) {
-                          $q->where('horainicio', '<=', $request->horainicio)
-                            ->where('horafin', '>=', $request->horafin);
+                          $q->where('hora_inicio', '<=', $request->hora_inicio)
+                            ->where('hora_fin', '>=', $request->hora_fin);
                       });
             })
             ->exists();
 
         if ($exists) {
-            return response()->json(['message' => 'La mesa no está disponible en ese horario.'], 422);
+            return response()->json(['message' => 'Mesa ocupada en este horario'], 422);
         }
 
-        $reserva = new Reserva();
-        $reserva->cliente = $request->cliente;
-        $reserva->mesa = $request->mesa;
-        $reserva->plato_id = $request->plato_id;
-        $reserva->experiencia_id = $request->experiencia_id;
-        $reserva->drink_id = $request->drink_id ?? $request->drinkId;
-        $reserva->drink_name = $request->drink_name ?? $request->drinkName;
-        $reserva->opcionales = $request->opcionales ?? $request->opcionalesIds;
+        $reserva = Reserva::create([
+            'cliente_id' => $request->cliente_id,
+            'mesa_id' => $request->mesa_id,
+            'fecha' => $request->fecha,
+            'hora_inicio' => $request->hora_inicio,
+            'hora_fin' => $request->hora_fin,
+            'cantidad_personas' => $request->cantidad_personas,
+            'motivo' => $request->motivo ?? 'Web',
+            'estado' => $request->estado ?? 'pendiente',
+            'detalles_consumo' => $request->detalles_consumo,
+            'total' => $request->total ?? 0
+        ]);
 
-        $reserva->opcionales_nombres = $request->opcionales_nombres ?? $request->opcionalesNombres;
-        $reserva->extras = $request->extras ?? ($request->opcionales_nombres ?? $request->opcionalesNombres);
-        $reserva->fechareserva = $request->fechareserva;
-        $reserva->horainicio = $request->horainicio;
-        $reserva->horafin = $request->horafin;
-        $reserva->cantidadpersonas = $request->cantidadpersonas;
-        $reserva->motivo = $request->motivo ?? 'Reserva Web';
-        $reserva->tipopago = $request->tipopago ?? 'Pendiente';
-        $reserva->fechasistema = date('Y-m-d');
-        $reserva->usuario = 1;
-        $reserva->estadoreserva = 1;
-        $reserva->save();
-
-        return response()->json(['message' => 'Reserva creada con éxito', 'data' => $reserva], 201);
+        return response()->json(['message' => 'Reserva creada', 'data' => $reserva], 201);
     }
 
     public function checkAvailability(Request $request)
@@ -84,160 +66,58 @@ class ReservaController extends Controller
         $request->validate([
             'fecha' => 'required|date',
             'hora' => 'required',
-            'cantidadpersonas' => 'required|integer|min:1',
-            'experiencia_id' => 'nullable|integer',
-            'zona' => 'nullable|string'
+            'cantidad_personas' => 'required|integer',
         ]);
 
-        $fecha = $request->fecha;
-        $hora = $request->hora;
-        $personas = (int) $request->cantidadpersonas;
-        $experienciaId = $request->experiencia_id;
-        $zona = $request->zona;
+        $horaInicio = $request->hora;
+        // Default 2 hours duration
+        $horaFin = date('H:i', strtotime($horaInicio) + 7200);
 
-        // Meterle 2 horas
-        $horaFin = date('H:i', strtotime($hora) + 7200);
-
-        $reservedTableIds = Reserva::where('fechareserva', $fecha)
-            ->where(function ($query) use ($hora, $horaFin) {
-                $query->where('horainicio', '<', $horaFin)
-                      ->where('horafin', '>', $hora);
+        // Get IDs of tables reserved during this time slot
+        $mesasOcupadasIds = Reserva::where('fecha', $request->fecha)
+            ->where(function ($query) use ($horaInicio, $horaFin) {
+                // Logic: A reservation overlaps if it starts before our end AND ends after our start
+                $query->where('hora_inicio', '<', $horaFin)
+                      ->where('hora_fin', '>', $horaInicio);
             })
-            ->pluck('mesa');
+            ->where('estado', '!=', 'cancelada')
+            ->pluck('mesa_id');
 
+        // Filter tables compatible with group size
+        $candidatas = Mesa::where('capacidad', '>=', $request->cantidad_personas)
+            ->where('estado', '!=', 'mantenimiento')
+            ->get();
 
-        $mesasQuery = Mesa::query()
-            ->where(function ($q) {
-                $q->whereNull('disponible')->orWhere('disponible', true);
-            });
-
-
-        $expNombre = null;
-        if (!empty($experienciaId)) {
-            $expNombre = DB::table('experiencias')->where('idexperiencia', $experienciaId)->value('nombre');
-        }
-
-        $expEsRomantica = $expNombre && str_contains(strtolower($expNombre), 'romant');
-
-
-        $capacidadExpr = 'COALESCE(sillas, cantidadsillas)';
-
-        if ($personas <= 1) {
-
-            $mesasQuery
-                ->where(function ($q) {
-                    $q->where('tipo', 'solitario')->orWhereNull('tipo');
-                })
-                ->whereRaw($capacidadExpr . ' = ?', [1]);
-        } elseif ($personas === 2) {
-
-            $mesasQuery
-                ->where(function ($q) {
-                    $q->where('tipo', 'pareja')->orWhere('tipo', 'romantica');
-                })
-                ->whereRaw($capacidadExpr . ' = ?', [2]);
-        } else {
-            // Familiar / general: capacidad igual o mayor al número de personas
-            $mesasQuery
-                ->where(function ($q) {
-                    $q->where('tipo', 'familiar')->orWhereNull('tipo');
-                })
-                ->whereRaw($capacidadExpr . ' >= ?', [$personas]);
-        }
-
-        if (!empty($zona)) {
-            $mesasQuery->where(function ($q) use ($zona) {
-                $q->where('zona', $zona)->orWhere('ubicacionmesa', $zona);
-            });
-        }
-
-        $candidatas = $mesasQuery->get();
-
-        // Marcar cuales están reservadas en el turno
-        $availableTables = $candidatas->map(function ($mesa) use ($reservedTableIds) {
-            $mesa->reservada = $reservedTableIds->contains($mesa->idmesa);
+        // Mark them as reserved or available
+        $result = $candidatas->map(function ($mesa) use ($mesasOcupadasIds) {
+            $mesa->reservada = $mesasOcupadasIds->contains($mesa->id);
             return $mesa;
         });
 
-        return response()->json($availableTables);
+        return response()->json($result);
     }
 
-    public function destroy($id)
+    public function show($id)
     {
-        $reserva = Reserva::find($id);
-        if ($reserva) {
-            $reserva->delete();
-            return response()->json(['message' => 'Reserva eliminada'], 200);
-        }
-        return response()->json(['message' => 'Reserva no encontrada'], 404);
-    }
-
-    public function updateStatus(Request $request, $id)
-    {
-        $reserva = Reserva::find($id);
-        if (!$reserva) {
-            return response()->json(['message' => 'Reserva no encontrada'], 404);
-        }
-
-        $request->validate([
-            'estadoreserva' => 'required|integer|in:1,2'
-        ]);
-
-        $reserva->estadoreserva = $request->estadoreserva;
-        $reserva->save();
-
-        return response()->json([
-            'message' => 'Estado actualizado',
-            'data' => $reserva
-        ], 200);
+        $reserva = Reserva::with(['cliente', 'mesa'])->find($id);
+        if (!$reserva) return response()->json(['message' => 'No encontrada'], 404);
+        return response()->json($reserva);
     }
 
     public function update(Request $request, $id)
     {
         $reserva = Reserva::find($id);
-        if (!$reserva) {
-            return response()->json(['message' => 'Reserva no encontrada'], 404);
-        }
+        if (!$reserva) return response()->json(['message' => 'No encontrada'], 404);
 
-        $request->validate([
-            'fechareserva' => 'required|date',
-            'horainicio' => 'required',
-            'horafin' => 'required',
-            'cantidadpersonas' => 'required|integer|min:1',
-            'mesa' => 'required'
-        ]);
+        $reserva->update($request->all());
+        return response()->json(['message' => 'Actualizada', 'data' => $reserva]);
+    }
 
-
-        $exists = Reserva::where('mesa', $request->mesa)
-            ->where('fechareserva', $request->fechareserva)
-            ->where('idreserva', '!=', $id)
-            ->where(function ($query) use ($request) {
-                $query->whereBetween('horainicio', [$request->horainicio, $request->horafin])
-                      ->orWhereBetween('horafin', [$request->horainicio, $request->horafin])
-                      ->orWhere(function ($q) use ($request) {
-                          $q->where('horainicio', '<=', $request->horainicio)
-                            ->where('horafin', '>=', $request->horafin);
-                      });
-            })
-            ->exists();
-
-        if ($exists) {
-            return response()->json(['message' => 'La mesa no está disponible en ese horario.'], 422);
-        }
-
-        $reserva->fechareserva = $request->fechareserva;
-        $reserva->horainicio = $request->horainicio;
-        $reserva->horafin = $request->horafin;
-        $reserva->cantidadpersonas = $request->cantidadpersonas;
-        $reserva->mesa = $request->mesa;
-        $reserva->drink_id = $request->drink_id ?? $request->drinkId ?? $reserva->drink_id;
-        $reserva->drink_name = $request->drink_name ?? $request->drinkName ?? $reserva->drink_name;
-        $reserva->opcionales = $request->opcionales ?? $request->opcionalesIds ?? $reserva->opcionales;
-        $reserva->opcionales_nombres = $request->opcionales_nombres ?? $request->opcionalesNombres ?? $reserva->opcionales_nombres;
-        $reserva->extras = $request->extras ?? ($request->opcionales_nombres ?? $request->opcionalesNombres ?? $reserva->extras);
-        $reserva->motivo = $request->motivo ?? $reserva->motivo;
-        $reserva->save();
-
-        return response()->json(['message' => 'Reserva actualizada', 'data' => $reserva], 200);
+    public function destroy($id)
+    {
+        $reserva = Reserva::find($id);
+        if (!$reserva) return response()->json(['message' => 'No encontrada'], 404);
+        $reserva->delete();
+        return response()->json(['message' => 'Eliminada']);
     }
 }

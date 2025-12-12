@@ -28,7 +28,9 @@ export const App = () => {
 		}
 	}, []);
 
-	const isAdmin = user && user.dni === 'admin'; // Admin check updated
+	// Check for admin DNI (00000000) or if the user object has a clear admin flag/role if implemented later.
+	// The current system uses '00000000' for the admin user.
+	const isAdmin = user && (user.dni === '00000000' || user.dni.toLowerCase() === 'admin');
 	const isAuthenticated = Boolean(user);
 
 	const ProtectedRoute = ({ children }) => {

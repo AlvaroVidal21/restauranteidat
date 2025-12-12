@@ -22,7 +22,7 @@ const Experiencias = () => {
       text.includes(' mar.') ||
       text.includes(' mar,')
     ) {
-        
+
       if (!text.includes('maridaje')) {
         return 'https://i.pinimg.com/1200x/74/b8/e5/74b8e5cd81f5c4ba6f05a73c6e23304d.jpg';
       }
@@ -82,8 +82,8 @@ const Experiencias = () => {
       )}
 
       <div className="menu-grid">
-        {experiencias.map(exp => (
-          <article key={exp.idexperiencia} className="menu-card">
+        {experiencias.map((exp) => (
+          <article key={exp.id} className="menu-card">
             <p className="menu-meta">Experiencia</p>
             <h3 style={{ marginBottom: 'var(--spacing-xs)' }}>{exp.nombre}</h3>
             <div style={{ borderRadius: '12px', overflow: 'hidden', marginBottom: 'var(--spacing-sm)', boxShadow: 'var(--shadow-sm)' }}>
@@ -98,7 +98,7 @@ const Experiencias = () => {
             </p>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
               <span className="menu-price">${parseFloat(exp.precio).toFixed(2)}</span>
-              <button className="btn-lab btn-lab-sm" onClick={() => navigate(`/reservar?exp=${exp.idexperiencia}`)}>Reservar</button>
+              <button className="btn-lab btn-lab-sm" onClick={() => navigate(`/reservar?exp=${exp.id}`)}>Reservar</button>
             </div>
             <div className="summary-box" style={{ marginBottom: 0 }}>
               <ul style={{ margin: 0, paddingLeft: '18px', color: 'var(--color-text-light)', fontSize: '13px', lineHeight: 1.6 }}>

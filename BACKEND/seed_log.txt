@@ -1,0 +1,26 @@
+
+   INFO  Seeding database.  
+
+  Database\Seeders\RestaurantSeeder .................. RUNNING  
+
+   Illuminate\Database\QueryException 
+
+  SQLSTATE[HY000]: General error: 1 table mesas has no column named tipo (Connection: sqlite, SQL: insert into "mesas" ("codigo", "nombre", "descripcion", "ubicacion", "capacidad", "tipo", "estado", "updated_at", "created_at") values (M-001, Solitario Ventana, Individual junto a la ventana, Ventana, 1, solitario, disponible, 2025-12-12 02:51:36, 2025-12-12 02:51:36))
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:822
+    818Ôûò                     $this->getName(), $query, $this->prepareBindings($bindings), $e
+    819Ôûò                 );
+    820Ôûò             }
+    821Ôûò 
+  Ô×£ 822Ôûò             throw new QueryException(
+    823Ôûò                 $this->getName(), $query, $this->prepareBindings($bindings), $e
+    824Ôûò             );
+    825Ôûò         }
+    826Ôûò     }
+
+  1   vendor\laravel\framework\src\Illuminate\Database\Connection.php:562
+      PDOException::("SQLSTATE[HY000]: General error: 1 table mesas has no column named tipo")
+
+  2   vendor\laravel\framework\src\Illuminate\Database\Connection.php:562
+      PDO::prepare()
+

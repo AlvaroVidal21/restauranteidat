@@ -6,10 +6,11 @@ const GestionMesas = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [editMesa, setEditMesa] = useState(null);
     const [formData, setFormData] = useState({
-        nombremessa: '',
-        cantidadsillas: '',
-        ubicacionmesa: '',
-        tipo: 'familiar'
+        nombre: '',
+        capacidad: '',
+        ubicacion: '',
+        tipo: 'familiar',
+        estado: 'disponible'
     });
 
     useEffect(() => {
@@ -47,10 +48,7 @@ const GestionMesas = () => {
                 if (contentType && contentType.indexOf("application/json") !== -1) {
                     data = await resp.json();
                 } else {
-                    // If not JSON, it might be an HTML error page from Laravel (500)
-                    const text = await resp.text();
-                    console.error("Non-JSON response:", text);
-                    data = { message: `Error del servidor (${resp.status}). Ver consola.` };
+                    data = { message: 'Error en servidor' };
                 }
 
                 if (resp.ok) {
@@ -70,18 +68,20 @@ const GestionMesas = () => {
         if (mesa) {
             setEditMesa(mesa);
             setFormData({
-                nombremessa: mesa.nombremessa,
-                cantidadsillas: mesa.cantidadsillas || mesa.sillas,
-                ubicacionmesa: mesa.ubicacionmesa || mesa.zona,
-                tipo: mesa.tipo || 'familiar'
+                nombre: mesa.nombre,
+                capacidad: mesa.capacidad,
+                ubicacion: mesa.ubicacion,
+                tipo: mesa.tipo || 'familiar',
+                estado: mesa.estado || 'disponible'
             });
         } else {
             setEditMesa(null);
             setFormData({
-                nombremessa: '',
-                cantidadsillas: '',
-                ubicacionmesa: '',
-                tipo: 'familiar'
+                nombre: '',
+                capacidad: '',
+                ubicacion: '',
+                tipo: 'familiar',
+                estado: 'disponible'
             });
         }
         setModalOpen(true);
@@ -93,12 +93,12 @@ const GestionMesas = () => {
     };
 
     const handleSave = async () => {
-        if (!formData.nombremessa || !formData.cantidadsillas) {
-            Swal.fire('Error', 'Nombre y Cantidad de sillas son obligatorios', 'error');
+        if (!formData.nombre || !formData.capacidad) {
+            Swal.fire('Error', 'Nombre y Capacidad son obligatorios', 'error');
             return;
         }
 
-        const id = editMesa ? (editMesa.idmesa || editMesa.id) : null;
+        const id = editMesa ? editMesa.id : null;
         const url = id
             ? `http://127.0.0.1:8000/api/mesas/${id}`
             : 'http://127.0.0.1:8000/api/mesas';
@@ -145,10 +145,10 @@ const GestionMesas = () => {
                     <table className="lab-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                <th>Código</th>
                                 <th>Nombre</th>
                                 <th>Capacidad</th>
-                                <th>Ubicación / Zona</th>
+                                <th>Ubicación</th>
                                 <th>Tipo</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
@@ -156,15 +156,15 @@ const GestionMesas = () => {
                         </thead>
                         <tbody>
                             {mesas.map(mesa => (
-                                <tr key={mesa.idmesa || mesa.id}>
-                                    <td>{mesa.idmesa || mesa.id}</td>
-                                    <td>{mesa.nombremessa}</td>
-                                    <td>{mesa.cantidadsillas || mesa.sillas} pax</td>
-                                    <td>{mesa.ubicacionmesa || mesa.zona}</td>
+                                <tr key={mesa.id}>
+                                    <td>{mesa.codigo || mesa.id}</td>
+                                    <td>{mesa.nombre}</td>
+                                    <td>{mesa.capacidad} pax</td>
+                                    <td>{mesa.ubicacion}</td>
                                     <td>{mesa.tipo}</td>
                                     <td>
-                                        <span className={`status-chip ${mesa.disponible ? 'status-pending' : 'status-done'}`}>
-                                            {mesa.disponible ? 'Habilitada' : 'Inhabilitada'}
+                                        <span className={`status-chip ${mesa.estado === 'disponible' ? 'status-done' : 'status-pending'}`}>
+                                            {mesa.estado}
                                         </span>
                                     </td>
                                     <td>
@@ -172,7 +172,7 @@ const GestionMesas = () => {
                                             <button className="action-pill action-pill-edit" onClick={() => openModal(mesa)}>
                                                 Editar
                                             </button>
-                                            <button className="action-pill action-pill-cancel" onClick={() => handleDelete(mesa.idmesa || mesa.id)}>
+                                            <button className="action-pill action-pill-cancel" onClick={() => handleDelete(mesa.id)}>
                                                 Eliminar
                                             </button>
                                         </div>
@@ -198,15 +198,15 @@ const GestionMesas = () => {
                         <div className="form-grid" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             <div>
                                 <label>Nombre de Mesa</label>
-                                <input className="lab-input" value={formData.nombremessa} onChange={e => setFormData({ ...formData, nombremessa: e.target.value })} placeholder="Ej: Mesa 1" />
+                                <input className="lab-input" value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} placeholder="Ej: Mesa 1" />
                             </div>
                             <div>
-                                <label>Capacidad (Sillas)</label>
-                                <input type="number" className="lab-input" value={formData.cantidadsillas} onChange={e => setFormData({ ...formData, cantidadsillas: e.target.value })} placeholder="Ej: 4" />
+                                <label>Capacidad (Personas)</label>
+                                <input type="number" className="lab-input" value={formData.capacidad} onChange={e => setFormData({ ...formData, capacidad: e.target.value })} placeholder="Ej: 4" />
                             </div>
                             <div>
-                                <label>Ubicación / Zona</label>
-                                <input className="lab-input" value={formData.ubicacionmesa} onChange={e => setFormData({ ...formData, ubicacionmesa: e.target.value })} placeholder="Ej: Terraza" />
+                                <label>Ubicación</label>
+                                <input className="lab-input" value={formData.ubicacion} onChange={e => setFormData({ ...formData, ubicacion: e.target.value })} placeholder="Ej: Terraza" />
                             </div>
                             <div>
                                 <label>Tipo</label>
@@ -215,6 +215,14 @@ const GestionMesas = () => {
                                     <option value="pareja">Pareja</option>
                                     <option value="solitario">Solitario</option>
                                     <option value="romantica">Romántica</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Estado</label>
+                                <select className="lab-input" value={formData.estado} onChange={e => setFormData({ ...formData, estado: e.target.value })}>
+                                    <option value="disponible">Disponible</option>
+                                    <option value="ocupada">Ocupada</option>
+                                    <option value="mantenimiento">Mantenimiento</option>
                                 </select>
                             </div>
                         </div>

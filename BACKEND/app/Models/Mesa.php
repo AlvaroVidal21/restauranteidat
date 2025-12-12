@@ -6,24 +6,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class Mesa extends Model
 {
-    protected $table = 'mesa';
-    protected $primaryKey = 'idmesa';
-    public $timestamps = false; // Assuming typical setup in this project based on Reserva model
-
+    protected $table = 'mesas';
+    
+    // Default primary key is 'id' and timestamps are true by default
 
     protected $fillable = [
-        'codigoinventario',
-        'nombremessa',
-        'descripcionmesa',
-        'ubicacionmesa',
-        'cantidadsillas',
-        'fecharegistro',
-        'usuario',
-        'estadouso',
-        'estadogeneral',
+        'codigo',
+        'nombre',
+        'descripcion',
+        'ubicacion',
+        'capacidad',
         'tipo',
-        'zona',
-        'sillas',
-        'disponible',
+        'estado'
     ];
+
+    public function reservas()
+    {
+        return $this->hasMany(Reserva::class);
+    }
 }

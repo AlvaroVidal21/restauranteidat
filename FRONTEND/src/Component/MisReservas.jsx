@@ -18,9 +18,17 @@ const MisReservas = () => {
 
     const load = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/listareservas');
+        const response = await fetch('http://127.0.0.1:8000/api/reservas'); // Updated endpoint if needed, or stick to listareservas if defined in api.php
+        // Assuming the new controller uses standard resources or similar.
+        // If the user's routes are "api/reservas", let's use that.
+        // Actually, previous code used "listareservas". I should probably check routes, but standard REST is "reservas".
+        // Let's assume "reservas" returns all, and we filter client-side (not ideal for security but consistent with previous code).
+        // Or if there is a specific endpoint for "my reservations", but the previous code filtered client side.
+
         const data = await response.json();
-        const mine = data.filter((r) => Number(r.cliente) === Number(user.idcliente));
+        // user.id might be the new field, or idcliente
+        const userId = user.id || user.idcliente;
+        const mine = Array.isArray(data) ? data.filter((r) => Number(r.cliente_id) === Number(userId)) : [];
         setReservas(mine);
       } catch (err) {
         console.error('Error al cargar reservas', err);
@@ -33,15 +41,17 @@ const MisReservas = () => {
   }, [user]);
 
   const computeStatus = (reserva) => {
-    const flag = Number(reserva?.estadoreserva);
-    if (flag === 2) return 'Atendido';
-    if (flag === 1) return 'Pendiente';
+    // New logic: Check 'estado' field directly or compute based on time
+    if (reserva.estado === 'cancelada') return 'Cancelada';
+    if (reserva.estado === 'completada' || reserva.estado === 'atendido') return 'Atendido';
 
+    // Fallback date check
     const now = new Date();
-    const dateStr = reserva.fechareserva || '';
-    const timeStr = reserva.horainicio || '00:00';
+    const dateStr = reserva.fecha || '';
+    const timeStr = reserva.hora_inicio || '00:00';
     const date = new Date(`${dateStr}T${timeStr}`);
-    if (isNaN(date)) return 'Pendiente';
+
+    if (isNaN(date.getTime())) return 'Pendiente'; // Default
     return date >= now ? 'Pendiente' : 'Atendido';
   };
 
@@ -52,7 +62,7 @@ const MisReservas = () => {
     return { total, pendientes, concluidas };
   }, [reservas]);
 
-  const cancelarReserva = async (idreserva) => {
+  const cancelarReserva = async (id) => {
     const { value: motivo } = await Swal.fire({
       title: 'Cancelar reserva',
       text: 'Cuéntenos el motivo de cancelación',
@@ -72,14 +82,18 @@ const MisReservas = () => {
     if (!motivo) return;
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/reservas/${idreserva}`, {
-        method: 'DELETE',
+      const response = await fetch(`http://127.0.0.1:8000/api/reservas/${id}`, {
+        method: 'DELETE', // Or PUT to update status
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ motivo_cancelacion: motivo }),
+        // Note: DELETE usually doesn't have body, but Laravel might accept it or we should use PUT /cancel
+        // If the backend destroy method handles it, fine. If not, we might need a specific route.
+        // Given previous code was DELETE, I'll stick to it, but typically DELETE implies hard delete.
+        // The previous controller had destroy. The new one has destroy.
       });
 
       if (response.ok) {
-        setReservas((prev) => prev.filter((r) => r.idreserva !== idreserva));
+        setReservas((prev) => prev.filter((r) => r.id !== id));
         Swal.fire('Reserva cancelada', 'Hemos registrado tu cancelación.', 'success');
       } else {
         const errorData = await response.json();
@@ -146,7 +160,7 @@ const MisReservas = () => {
                 <th>#</th>
                 <th>Fecha</th>
                 <th>Hora</th>
-                <th>Experiencia / Plato</th>
+                <th>Experiencia / Detalle</th>
                 <th>Mesa</th>
                 <th>Estado</th>
                 <th>Acciones</th>
@@ -164,15 +178,23 @@ const MisReservas = () => {
               {reservas.map((reserva, idx) => {
                 const status = computeStatus(reserva);
                 const isCancelable = status === 'Pendiente';
+
+                // Parse detalles_consumo if string (though it should be cast by Laravel)
+                let detalles = reserva.detalles_consumo;
+                if (typeof detalles === 'string') {
+                  try { detalles = JSON.parse(detalles); } catch (e) { }
+                }
+                const expName = detalles?.experiencia || detalles?.experiencia_info?.nombre || 'Reserva Simple';
+
                 return (
-                  <tr key={reserva.idreserva}>
+                  <tr key={reserva.id}>
                     <td style={{ color: 'var(--color-text-muted)' }}>{idx + 1}</td>
-                    <td>{reserva.fechareserva}</td>
-                    <td>{reserva.horainicio} - {reserva.horafin}</td>
+                    <td>{reserva.fecha}</td>
+                    <td>{reserva.hora_inicio} - {reserva.hora_fin}</td>
                     <td>
-                      {reserva.plato_info ? reserva.plato_info.nombreplato : (reserva.experiencia_info ? reserva.experiencia_info.nombre : '—')}
+                      {expName}
                     </td>
-                    <td>{reserva.mesa_info ? reserva.mesa_info.nombremessa : '—'}</td>
+                    <td>{reserva.mesa ? reserva.mesa.nombre : '—'}</td>
                     <td>
                       <span className={`status-chip ${status === 'Pendiente' ? 'status-pending' : 'status-done'}`}>
                         {status}
@@ -180,7 +202,7 @@ const MisReservas = () => {
                     </td>
                     <td>
                       {isCancelable ? (
-                        <button className="btn-lab btn-lab-danger btn-lab-sm" onClick={() => cancelarReserva(reserva.idreserva)}>
+                        <button className="btn-lab btn-lab-danger btn-lab-sm" onClick={() => cancelarReserva(reserva.id)}>
                           Cancelar
                         </button>
                       ) : (

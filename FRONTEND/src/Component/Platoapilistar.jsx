@@ -54,7 +54,7 @@ export const Platoapilistar = () => {
     };
 
     const filteredPlatos = platos.filter((p) => {
-        const matchNombre = p.nombreplato.toLowerCase().includes(filtroNombre.toLowerCase());
+        const matchNombre = (p.nombre || '').toLowerCase().includes(filtroNombre.toLowerCase());
         const matchCategoria = filtroCategoria ? (p.categoria || '').toLowerCase() === filtroCategoria.toLowerCase() : true;
         return matchNombre && matchCategoria;
     });
@@ -122,21 +122,21 @@ export const Platoapilistar = () => {
                         <tbody>
                             {filteredPlatos.length > 0 ? (
                                 filteredPlatos.map((plato, index) => (
-                                    <tr key={plato.idplato}>
+                                    <tr key={plato.id}>
                                         <td style={{ color: 'var(--color-text-muted)' }}>{index + 1}</td>
-                                        <td style={{ fontWeight: 500 }}>{plato.nombreplato}</td>
+                                        <td style={{ fontWeight: 500 }}>{plato.nombre}</td>
                                         <td><span className="pill pill-gold">{plato.categoria}</span></td>
                                         <td>${parseFloat(plato.precio || 0).toFixed(2)}</td>
                                         <td style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
                                             <button
                                                 className="btn-lab btn-lab-sm"
-                                                onClick={() => navigate(`/editarplato/${plato.idplato}`)}
+                                                onClick={() => navigate(`/editarplato/${plato.id}`)}
                                             >
                                                 Editar
                                             </button>
                                             <button
                                                 className="btn-lab btn-lab-sm btn-lab-danger"
-                                                onClick={() => eliminarPlato(plato.idplato)}
+                                                onClick={() => eliminarPlato(plato.id)}
                                             >
                                                 Eliminar
                                             </button>

@@ -6,7 +6,7 @@ export const Registrarplato = () => {
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
-        nombreplato: '',
+        nombre: '',
         categoria: '',
         precio: ''
     });
@@ -51,7 +51,7 @@ export const Registrarplato = () => {
                 }).then(() => {
                     navigate('/listarplatos');
                 });
-                setFormData({ nombreplato: '', categoria: '', precio: '' });
+                setFormData({ nombre: '', categoria: '', precio: '' });
             } else {
                 const joinedErrors = result?.errors
                     ? Object.values(result.errors).flat().join(' \n')
@@ -90,19 +90,19 @@ export const Registrarplato = () => {
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
-                        <label htmlFor="nombreplato">Nombre del Plato</label>
+                        <label htmlFor="nombre">Nombre del Plato</label>
                         <input
                             type="text"
-                            id="nombreplato"
-                            name="nombreplato"
+                            id="nombre"
+                            name="nombre"
                             className="lab-input"
                             maxLength="50"
-                            value={formData.nombreplato}
+                            value={formData.nombre}
                             onChange={handleChange}
                             required
                             autoComplete="off"
                         />
-                        {errors.nombreplato && <small style={{ color: 'var(--color-danger)', fontSize: '12px' }}>{errors.nombreplato[0]}</small>}
+                        {errors.nombre && <small style={{ color: 'var(--color-danger)', fontSize: '12px' }}>{errors.nombre[0]}</small>}
                     </div>
 
                     <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>

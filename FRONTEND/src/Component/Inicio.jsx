@@ -52,7 +52,7 @@ export const Inicio = () => {
           )}
 
           {experiencias.map(exp => (
-            <article key={exp.idexperiencia} className="menu-card">
+            <article key={exp.id} className="menu-card">
               <p className="menu-meta">Experiencia</p>
               <h3 style={{ marginBottom: 'var(--spacing-xs)' }}>{exp.nombre}</h3>
               <p className="text-muted" style={{ marginBottom: 'var(--spacing-md)' }}>

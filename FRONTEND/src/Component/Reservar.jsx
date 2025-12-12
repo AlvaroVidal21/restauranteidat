@@ -18,22 +18,22 @@ const Reservar = () => {
     const [opcionalesFiltro, setOpcionalesFiltro] = useState('todo');
 
     const [formData, setFormData] = useState({
-        plato_id: null,
         experiencia_id: null,
         fechareserva: '',
         horainicio: '',
         horafin: '',
-        mesa: '',
-        cliente: '',
+        mesa_id: '',
+        cliente_id: '',
         cantidadpersonas: 2,
         motivo: 'Experiencia Gastronómica',
         selectedItemName: '',
         selectedItemPrice: 0,
         notas: '',
+        // Detalles Consumo
         drink_id: null,
         drinkName: '',
-        opcionales: [],
-        opcionalesNombres: []
+        opcionales: [], // IDs
+        opcionalesNombres: [] // Names
     });
     const [preselectedExpId, setPreselectedExpId] = useState(null);
     const [preselectApplied, setPreselectApplied] = useState(false);
@@ -45,7 +45,7 @@ const Reservar = () => {
         { label: '8:00 PM', value: '20:00' },
     ];
 
-    // Small inline icons to differentiate persona presets
+    // Icons
     const PersonSoloIcon = () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="7" r="4" />
@@ -78,10 +78,10 @@ const Reservar = () => {
         { key: 'familiar', label: 'Familiar', hint: '3 a 12', Icon: FamilyIcon }
     ];
 
-    // Derive bebidas/tragos para mostrar opciones claras
+    // Derive bebidas
     const drinksList = platos.filter(p => {
         const cat = (p.categoria || '').toLowerCase();
-        const name = (p.nombreplato || '').toLowerCase();
+        const name = (p.nombre || '').toLowerCase();
         return (
             cat.includes('bebi') ||
             cat.includes('trago') ||
@@ -111,9 +111,10 @@ const Reservar = () => {
         }
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
-        setFormData(prev => ({ ...prev, cliente: parsedUser.dni === 'admin' ? '' : parsedUser.idcliente }));
+        // Correctly set cliente_id, assuming user.id is correct. If old user object has idcliente, use that.
+        setFormData(prev => ({ ...prev, cliente_id: parsedUser.dni === 'admin' ? '' : (parsedUser.id || parsedUser.idcliente) }));
 
-        if (parsedUser.dni === 'admin') {
+        if (parsedUser.dni === 'admin' || parsedUser.id === 1) {
             fetch('http://127.0.0.1:8000/api/clientes')
                 .then(res => res.json())
                 .then(data => setClientesList(data))
@@ -130,7 +131,6 @@ const Reservar = () => {
             .catch(() => setExperiencias([]));
     }, [navigate]);
 
-    // Lee preselección de experiencia desde query (?exp=ID) o state (expId)
     useEffect(() => {
         const params = new URLSearchParams(location.search || '');
         const fromQuery = params.get('exp');
@@ -141,10 +141,9 @@ const Reservar = () => {
         }
     }, [location]);
 
-    // Aplica preselección cuando experiencias estén cargadas
     useEffect(() => {
         if (!preselectedExpId || preselectApplied || experiencias.length === 0) return;
-        const match = experiencias.find(exp => String(exp.idexperiencia) === String(preselectedExpId));
+        const match = experiencias.find(exp => String(exp.id || exp.idexperiencia) === String(preselectedExpId));
         if (match) {
             handleSelectExperience(match);
             setPreselectApplied(true);
@@ -158,7 +157,7 @@ const Reservar = () => {
         setPersonaTipo(prev => (isRomantic ? 'pareja' : prev));
         setFormData(prev => ({
             ...prev,
-            experiencia_id: exp.idexperiencia,
+            experiencia_id: exp.id || exp.idexperiencia,
             selectedItemName: exp.nombre,
             selectedItemPrice: exp.precio,
             cantidadpersonas: isRomantic ? 2 : prev.cantidadpersonas
@@ -168,21 +167,24 @@ const Reservar = () => {
     const handleSelectDrink = (drink) => {
         setFormData(prev => ({
             ...prev,
-            drink_id: drink.idplato,
-            drinkName: drink.nombreplato
+            drink_id: drink.id || drink.idplato,
+            drinkName: drink.nombre || drink.nombreplato
         }));
     };
 
     const toggleOpcional = (plato) => {
+        const id = plato.id || plato.idplato;
+        const nombre = plato.nombre || plato.nombreplato;
+
         setFormData(prev => {
-            const exists = prev.opcionales.includes(plato.idplato);
+            const exists = prev.opcionales.includes(id);
             const nextOpcionales = exists
-                ? prev.opcionales.filter(id => id !== plato.idplato)
-                : [...prev.opcionales, plato.idplato];
+                ? prev.opcionales.filter(pid => pid !== id)
+                : [...prev.opcionales, id];
 
             const nextNombres = exists
-                ? prev.opcionalesNombres.filter(name => name !== plato.nombreplato)
-                : [...prev.opcionalesNombres, plato.nombreplato];
+                ? prev.opcionalesNombres.filter(name => name !== nombre)
+                : [...prev.opcionalesNombres, nombre];
 
             return {
                 ...prev,
@@ -192,7 +194,6 @@ const Reservar = () => {
         });
     };
 
-    // Keep formData.cantidadpersonas in sync with personaTipo/familiarCount
     useEffect(() => {
         if (personaTipo === 'solitario') {
             setFormData(prev => ({ ...prev, cantidadpersonas: 1 }));
@@ -224,12 +225,13 @@ const Reservar = () => {
                 body: JSON.stringify({
                     fecha: formData.fechareserva,
                     hora: formData.horainicio,
-                    cantidadpersonas: Number(formData.cantidadpersonas),
-                    experiencia_id: formData.experiencia_id,
-                    zona: zonaFiltro || null
+                    cantidad_personas: Number(formData.cantidadpersonas)
                 })
             });
             const data = await response.json();
+
+            // Backend returns array of Mesas.
+            // Filter locally by zona if needed, though availability logic should be done.
             setMesasDisponibles(data);
             if (data.length > 0) {
                 setStep(4);
@@ -243,32 +245,51 @@ const Reservar = () => {
     };
 
     const handleSubmit = async () => {
-        if (!formData.mesa) {
+        if (!formData.mesa_id) {
             Swal.fire('Selecciona una mesa', 'Debes elegir una mesa antes de confirmar.', 'warning');
             return;
         }
+
+        let finalClienteId = formData.cliente_id;
+
         if (user?.dni === 'admin') {
-            const adminOwnId = user.idcliente;
-            if (!formData.cliente) {
+            if (!formData.cliente_id) {
                 Swal.fire('Seleccione cliente', 'El administrador debe reservar para un cliente registrado.', 'warning');
                 return;
             }
-            if (String(formData.cliente) === String(adminOwnId)) {
-                Swal.fire('Cliente inválido', 'No puede reservarse a sí mismo; seleccione un cliente registrado.', 'warning');
-                return;
-            }
         }
+
+        const detalles = {
+            drink_id: formData.drink_id,
+            drink_name: formData.drinkName,
+            opcionales: formData.opcionales,
+            opcionales_nombres: formData.opcionalesNombres,
+            experiencia: formData.selectedItemName,
+            precio_unitario: formData.selectedItemPrice
+        };
+
+        const payload = {
+            cliente_id: finalClienteId,
+            mesa_id: formData.mesa_id,
+            fecha: formData.fechareserva,
+            hora_inicio: formData.horainicio,
+            hora_fin: formData.horafin,
+            cantidad_personas: formData.cantidadpersonas,
+            motivo: formData.motivo,
+            detalles_consumo: detalles,
+            total: (parseFloat(formData.selectedItemPrice) * formData.cantidadpersonas)
+        };
 
         try {
             const response = await fetch('http://127.0.0.1:8000/api/reservas', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
                 const clienteNombre = user?.dni === 'admin'
-                    ? (clientesList.find(c => String(c.idcliente) === String(formData.cliente))?.nombres || 'cliente seleccionado')
+                    ? (clientesList.find(c => String(c.id || c.idcliente) === String(formData.cliente_id))?.nombres || 'cliente')
                     : user?.nombres;
 
                 Swal.fire({
@@ -285,7 +306,6 @@ const Reservar = () => {
         }
     };
 
-    // Step indicator
     const StepIndicator = () => (
         <div className="stepper">
             {[1, 2, 3, 4].map(num => (
@@ -305,13 +325,11 @@ const Reservar = () => {
     return (
         <div className="lab-container">
             <div className="lab-card booking-card">
-
-                {/* Header */}
                 <div className="section-header" style={{ marginBottom: 'var(--spacing-lg)' }}>
                     <p className="menu-meta">Reservas</p>
                     <h2>
                         {step === 1 && 'Selecciona experiencia y una bebida'}
-                        {step === 2 && 'Agrega platos opcionales (o salta)'}
+                        {step === 2 && 'Agrega platos opcionales'}
                         {step === 3 && 'Elige fecha y turno'}
                         {step === 4 && 'Confirma tu reserva'}
                     </h2>
@@ -320,17 +338,17 @@ const Reservar = () => {
 
                 <StepIndicator />
 
-                {/* STEP 1: Selección principal */}
+                {/* STEP 1: Experience & Drink Logic Simplified for user clarity */}
                 {step === 1 && (
                     <div className="selection-shell">
-                        <h3 style={{ marginBottom: 'var(--spacing-sm)', fontSize: '1.25rem' }}>Experiencias Exclusivas</h3>
-                        <p className="text-muted" style={{ marginBottom: 'var(--spacing-md)' }}>Elige tu experiencia base. La tarjeta seleccionada se ilumina.</p>
+                        <h3 style={{ marginBottom: 'var(--spacing-sm)', fontSize: '1.25rem' }}>1. Elige tu Experiencia</h3>
                         <div className="selection-grid" style={{ marginBottom: 'var(--spacing-xl)' }}>
                             {experiencias.map(exp => {
-                                const isSelected = formData.experiencia_id === exp.idexperiencia;
+                                const expId = exp.id; // Use id directly
+                                const isSelected = Number(formData.experiencia_id) === Number(expId);
                                 return (
                                     <div
-                                        key={exp.idexperiencia}
+                                        key={expId}
                                         className={`lab-card selectable-card ${isSelected ? 'card-active' : ''}`}
                                         style={{ cursor: 'pointer', padding: 'var(--spacing-md)', position: 'relative' }}
                                         onClick={() => handleSelectExperience(exp)}
@@ -344,121 +362,69 @@ const Reservar = () => {
                             })}
                         </div>
 
-                        <h3 style={{ marginBottom: 'var(--spacing-sm)', fontSize: '1.25rem' }}>Elige tu bebida</h3>
-                        <p className="text-muted" style={{ marginBottom: 'var(--spacing-md)' }}>Selecciona la bebida que acompañará tu experiencia.</p>
-                        {displayDrinks.length === 0 && (
-                            <div className="empty-state" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)', border: '1px dashed var(--color-border)', borderRadius: '12px' }}>
-                                <p className="text-muted" style={{ marginBottom: 'var(--spacing-sm)' }}>No se detectaron tragos por categoría.</p>
-                                <div className="actions-inline" style={{ gap: 'var(--spacing-sm)' }}>
-                                    <button className="btn-lab" type="button" onClick={() => setShowAllDrinks(true)}>Mostrar toda la carta para elegir</button>
-                                    <button className="btn-lab btn-lab-primary" type="button" onClick={() => setStep(2)} disabled={!formData.experiencia_id}>Continuar sin trago</button>
-                                </div>
-                            </div>
-                        )}
-                        <div className="selection-grid">
+                        {/* Optional Drink Selection in Step 1 or moving to Step 2? 
+                            Keeping flow simple: Exp -> drink -> extras -> date
+                         */}
+                        <h3 style={{ marginBottom: 'var(--spacing-sm)', fontSize: '1.25rem', marginTop: 'var(--spacing-lg)' }}>2. Elige una bebida de cortesía/inicio</h3>
+                        <div className="selection-grid" style={{ marginBottom: 'var(--spacing-xl)' }}>
                             {displayDrinks.map(drink => {
-                                const isSelected = formData.drink_id === drink.idplato;
+                                const drinkId = drink.id;
+                                const isSelected = Number(formData.drink_id) === Number(drinkId);
                                 return (
                                     <div
-                                        key={drink.idplato}
+                                        key={drinkId}
                                         className={`lab-card selectable-card ${isSelected ? 'card-active' : ''}`}
-                                        style={{ cursor: 'pointer', padding: 'var(--spacing-md)', position: 'relative' }}
                                         onClick={() => handleSelectDrink(drink)}
                                     >
-                                        <p className="menu-meta">Bebida</p>
-                                        <h4 style={{ marginBottom: 'var(--spacing-xs)' }}>{drink.nombreplato}</h4>
-                                        <p style={{ fontSize: '12px', color: 'var(--color-gold)', marginBottom: 'var(--spacing-sm)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                            {drink.categoria || 'Bebida'}</p>
-                                        <p className="text-muted" style={{ fontSize: '12px', minHeight: '32px' }}>{drink.descripcion || 'Maridaje sugerido para la experiencia.'}</p>
-                                        <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--color-primary)' }}>
-                                            ${parseFloat(drink.precio).toFixed(2)}
-                                        </span>
+                                        <h4>{drink.nombre}</h4>
+                                        <p style={{ fontSize: '12px' }}>{drink.descripcion}</p>
                                     </div>
-                                );
+                                )
                             })}
                         </div>
 
-                        <div className="actions-inline" style={{ marginTop: 'var(--spacing-lg)' }}>
-                            <button
-                                className="btn-lab btn-lab-primary"
-                                onClick={() => {
-                                    if (!formData.experiencia_id) {
-                                        Swal.fire('Selecciona una experiencia', 'Debes elegir una experiencia para continuar.', 'warning');
-                                        return;
-                                    }
-                                    if (displayDrinks.length > 0 && !formData.drink_id) {
-                                        Swal.fire('Selecciona una bebida', 'Elige una bebida para acompañar tu experiencia.', 'warning');
-                                        return;
-                                    }
-                                    setStep(2);
-                                }}
-                            >
-                                Continuar a opcionales
+                        <div className="actions-inline" style={{ marginTop: 'var(--spacing-xl)', justifyContent: 'center' }}>
+                            <button className="btn-lab btn-lab-primary" style={{ padding: '12px 40px', fontSize: '1.1rem' }} onClick={() => {
+                                if (!formData.experiencia_id) { Swal.fire('Atención', 'Selecciona una experiencia', 'warning'); return; }
+                                // Drink is optional or required? Let's say optional, but encourage it.
+                                setStep(2);
+                            }}>
+                                CONTINUAR
                             </button>
                         </div>
                     </div>
                 )}
 
-                {/* STEP 2: Platos opcionales */}
+                {/* STEP 2: Opcionales */}
                 {step === 2 && (
                     <div className="selection-shell">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
-                            <h3 style={{ fontSize: '1.25rem' }}>Platos opcionales</h3>
-                            <span className="text-muted" style={{ fontSize: '12px' }}>Puedes omitirlos y decidir al llegar</span>
-                        </div>
-
+                        <h3 style={{ fontSize: '1.25rem' }}>Platos opcionales (Adicionales)</h3>
                         <div className="tab-row" style={{ marginBottom: 'var(--spacing-md)' }}>
                             {['todo', 'entradas', 'fondos', 'postres'].map(cat => (
-                                <button
-                                    key={cat}
-                                    type="button"
-                                    className={`pill-tab ${opcionalesFiltro === cat ? 'pill-tab-active' : ''}`}
-                                    onClick={() => setOpcionalesFiltro(cat)}
-                                >
+                                <button key={cat} type="button" className={`pill-tab ${opcionalesFiltro === cat ? 'pill-tab-active' : ''}`} onClick={() => setOpcionalesFiltro(cat)}>
                                     {cat === 'todo' ? 'Todo' : cat.charAt(0).toUpperCase() + cat.slice(1)}
                                 </button>
                             ))}
                         </div>
-
                         <div className="selection-grid">
                             {platos
                                 .filter(p => {
                                     const cat = (p.categoria || '').toLowerCase();
-                                    const esBebida = cat.includes('bebi') || cat.includes('trago');
-                                    if (esBebida) return false;
+                                    if (cat.includes('bebi') || cat.includes('trago')) return false; // Hide drinks here
                                     if (opcionalesFiltro === 'todo') return true;
                                     return cat.includes(opcionalesFiltro);
                                 })
                                 .map(plato => {
-                                    const isSelected = formData.opcionales.includes(plato.idplato);
+                                    const id = plato.id;
+                                    const isSelected = formData.opcionales.includes(id);
                                     return (
-                                        <div
-                                            key={plato.idplato}
-                                            className={`lab-card selectable-card ${isSelected ? 'card-active' : ''}`}
-                                            style={{ cursor: 'pointer', padding: 'var(--spacing-md)', position: 'relative' }}
-                                            onClick={() => toggleOpcional(plato)}
-                                        >
-                                            <h4 style={{ marginBottom: 'var(--spacing-xs)', fontSize: '1.15rem' }}>{plato.nombreplato}</h4>
-                                            <p style={{ fontSize: '12px', color: 'var(--color-gold)', marginBottom: 'var(--spacing-sm)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                                {plato.categoria || 'Categoría'}
-                                            </p>
-                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--color-primary)' }}>
-                                                ${parseFloat(plato.precio).toFixed(2)}
-                                            </span>
-                                            {isSelected && <div style={{ position: 'absolute', top: '12px', right: '12px', color: 'var(--color-gold)', fontWeight: '600' }}>✓</div>}
+                                        <div key={id} className={`lab-card selectable-card ${isSelected ? 'card-active' : ''}`} onClick={() => toggleOpcional(plato)}>
+                                            <h4>{plato.nombre}</h4>
+                                            <span style={{ color: 'var(--color-primary)' }}>${parseFloat(plato.precio).toFixed(2)}</span>
                                         </div>
                                     );
                                 })}
                         </div>
-
-                        {formData.opcionalesNombres.length > 0 && (
-                            <div className="pill-row" style={{ marginTop: 'var(--spacing-md)' }}>
-                                {formData.opcionalesNombres.map(name => (
-                                    <span key={name} className="pill" style={{ background: 'var(--color-bg-soft)' }}>{name}</span>
-                                ))}
-                            </div>
-                        )}
-
                         <div className="actions-inline" style={{ marginTop: 'var(--spacing-lg)' }}>
                             <button className="btn-lab" onClick={() => setStep(1)}>Atrás</button>
                             <button className="btn-lab btn-lab-primary" onClick={() => setStep(3)}>Continuar</button>
@@ -466,246 +432,86 @@ const Reservar = () => {
                     </div>
                 )}
 
-                {/* STEP 3: Fecha y hora */}
+                {/* STEP 3: Fecha */}
                 {step === 3 && (
                     <form onSubmit={checkAvailability} className="form-shell" style={{ maxWidth: '540px', margin: '0 auto' }}>
                         <div className="summary-box">
-                            <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>Selección</p>
-                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', margin: 0, color: 'var(--color-primary)' }}>{formData.selectedItemName || 'Selecciona una experiencia'}</p>
-                            <p style={{ color: 'var(--color-gold)', margin: 0, fontWeight: '600' }}>{formData.drinkName ? `Bebida: ${formData.drinkName}` : 'Sin bebida seleccionada'}</p>
-                            <p style={{ color: 'var(--color-text-muted)', margin: '4px 0' }}>Platos opcionales: {formData.opcionalesNombres.length || '0'}</p>
-                            {formData.opcionalesNombres.length > 0 && (
-                                <p style={{ color: 'var(--color-text)', margin: 0, fontSize: '12px' }}>{formData.opcionalesNombres.join(', ')}</p>
-                            )}
-                            <p style={{ color: 'var(--color-gold)', margin: '4px 0 0 0' }}>${parseFloat(formData.selectedItemPrice || 0).toFixed(2)} por persona</p>
+                            <p>Experiencia: <strong>{formData.selectedItemName}</strong></p>
                         </div>
-
                         <div style={{ marginBottom: 'var(--spacing-md)' }}>
                             <label>Fecha de Reserva</label>
                             <input type="date" className="lab-input" required value={formData.fechareserva} onChange={e => setFormData({ ...formData, fechareserva: e.target.value })} />
                         </div>
-
                         <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                            <label>Hora de Inicio (turnos de 2h)</label>
-                            <select
-                                className="lab-input"
-                                required
-                                value={formData.horainicio}
-                                onChange={e => setFormData({ ...formData, horainicio: e.target.value })}
-                            >
-                                <option value="">-- Seleccione horario --</option>
-                                {timeSlots.map(slot => (
-                                    <option key={slot.value} value={slot.value}>{slot.label}</option>
-                                ))}
+                            <label>Hora</label>
+                            <select className="lab-input" required value={formData.horainicio} onChange={e => setFormData({ ...formData, horainicio: e.target.value })}>
+                                <option value="">-- Seleccione --</option>
+                                {timeSlots.map(slot => <option key={slot.value} value={slot.value}>{slot.label}</option>)}
                             </select>
                         </div>
 
-                        <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                            <label>Personas</label>
-                            {isRomanticSelected && (
-                                <p style={{ margin: '4px 0 0 0', color: 'var(--color-gold)', fontSize: '12px', fontWeight: 600 }}>
-                                    Cena romántica: fijo en 2 personas.
-                                </p>
-                            )}
-                            <div
-                                className="pill-row"
-                                style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '1fr',
-                                    rowGap: '18px',
-                                    columnGap: '18px',
-                                    marginTop: '18px'
-                                }}
-                            >
-                                {personaOptions.map(opt => {
-                                    const Icon = opt.Icon;
-                                    const disabled = isRomanticSelected && opt.key !== 'pareja';
-                                    const active = personaTipo === opt.key;
-                                    return (
-                                        <button
-                                            key={opt.key}
-                                            type="button"
-                                            className={`pill-tab ${active ? 'pill-tab-active' : ''}`}
-                                            onClick={() => {
-                                                if (disabled) return;
-                                                setPersonaTipo(opt.key);
-                                            }}
-                                            disabled={disabled}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '12px',
-                                                minWidth: '210px',
-                                                justifyContent: 'flex-start',
-                                                padding: '18px 18px',
-                                                borderRadius: '14px',
-                                                border: active ? '1px solid #d6b15c' : '1px solid #ebe6dc',
-                                                background: active
-                                                    ? 'linear-gradient(135deg, #fffaf1, #f7f1e6)'
-                                                    : '#ffffff',
-                                                color: '#1b1e28',
-                                                boxShadow: active
-                                                    ? '0 20px 38px rgba(0,0,0,0.08), 0 0 0 1px rgba(214,177,92,0.35)'
-                                                    : '0 12px 28px rgba(0,0,0,0.07)',
-                                                opacity: disabled ? 0.5 : 1,
-                                                cursor: disabled ? 'not-allowed' : 'pointer',
-                                                transition: 'transform 0.12s ease, box-shadow 0.15s ease, border-color 0.2s ease, background 0.25s ease'
-                                            }}
-                                            title={disabled ? 'Fijado en 2 personas para cena romántica' : ''}
-                                            onMouseEnter={(e) => {
-                                                if (disabled) return;
-                                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.transform = 'translateY(0)';
-                                            }}
-                                        >
-                                            <Icon />
-                                            <span style={{ textAlign: 'left', lineHeight: 1.25 }}>
-                                                <div style={{ fontWeight: 700, letterSpacing: '0.2px', fontSize: '14px' }}>{opt.label}</div>
-                                                <div style={{ fontSize: '11px', color: '#5a6175' }}>{opt.hint}</div>
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {personaTipo === 'familiar' && !isRomanticSelected && (
-                                <div style={{ marginTop: 'var(--spacing-sm)' }}>
-                                    <label style={{ fontSize: '12px' }}>Número de personas (máx 12)</label>
-                                    <input
-                                        type="number"
-                                        className="lab-input"
-                                        min="3"
-                                        max="12"
-                                        value={familiarCount}
-                                        onChange={e => setFamiliarCount(Math.min(12, Math.max(3, Number(e.target.value) || 3)))}
-                                    />
-                                </div>
-                            )}
+                        {/* Persona Selector Logic */}
+                        <div className="pill-row" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
+                            {personaOptions.map(opt => (
+                                <button
+                                    key={opt.key}
+                                    type="button"
+                                    disabled={isRomanticSelected && opt.key !== 'pareja'}
+                                    className={`pill-tab ${personaTipo === opt.key ? 'pill-tab-active' : ''}`}
+                                    onClick={() => setPersonaTipo(opt.key)}
+                                >
+                                    {opt.label} ({opt.hint})
+                                </button>
+                            ))}
                         </div>
+                        {personaTipo === 'familiar' && (
+                            <input type="number" className="lab-input" min="3" max="12" value={familiarCount} onChange={e => setFamiliarCount(e.target.value)} />
+                        )}
 
-                        <div className="actions-inline">
+                        <div className="actions-inline" style={{ marginTop: '20px' }}>
                             <button type="button" className="btn-lab" onClick={() => setStep(2)}>Atrás</button>
                             <button type="submit" className="btn-lab btn-lab-primary">Buscar Mesa</button>
                         </div>
                     </form>
                 )}
 
-                {/* STEP 4: Confirmación */}
+                {/* STEP 4: Confirmar */}
                 {step === 4 && (
                     <div className="form-shell" style={{ maxWidth: '540px', margin: '0 auto' }}>
-                        <div className="summary-box">
-                            <h4 style={{ marginBottom: 'var(--spacing-md)' }}>Resumen de Reserva</h4>
-
-                            {user?.dni === 'admin' && (
-                                <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                                    <label>Reservar para Cliente</label>
-                                    <select
-                                        className="lab-input"
-                                        value={formData.cliente}
-                                        onChange={(e) => setFormData({ ...formData, cliente: e.target.value })}
-                                        required
-                                    >
-                                        <option value="">-- Seleccionar Cliente --</option>
-                                        {clientesList.map(c => (
-                                            <option key={c.idcliente} value={c.idcliente}>{c.nombres} ({c.dni})</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Experiencia</span>
-                                    <p style={{ margin: 0, fontWeight: '500' }}>{formData.selectedItemName}</p>
-                                </div>
-                                <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Bebida</span>
-                                    <p style={{ margin: 0, fontWeight: '500' }}>{formData.drinkName}</p>
-                                </div>
-                                <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Platos opcionales</span>
-                                    <p style={{ margin: 0, fontWeight: '500' }}>{formData.opcionalesNombres.length > 0 ? formData.opcionalesNombres.join(', ') : 'Ninguno'}</p>
-                                </div>
-                                <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Fecha y Hora</span>
-                                    <p style={{ margin: 0, fontWeight: '500' }}>{formData.fechareserva} a las {formData.horainicio}</p>
-                                </div>
-                                <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Personas</span>
-                                    <p style={{ margin: 0, fontWeight: '500' }}>{formData.cantidadpersonas}</p>
-                                </div>
-                                <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Total Estimado</span>
-                                    <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--color-gold)' }}>
-                                        ${(parseFloat(formData.selectedItemPrice) * formData.cantidadpersonas).toFixed(2)}
-                                    </p>
-                                </div>
+                        {user?.dni === 'admin' && (
+                            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                                <label>Cliente</label>
+                                <select className="lab-input" value={formData.cliente_id} onChange={(e) => setFormData({ ...formData, cliente_id: e.target.value })}>
+                                    <option value="">-- Seleccionar --</option>
+                                    {clientesList.map(c => <option key={c.id || c.idcliente} value={c.id || c.idcliente}>{c.nombres}</option>)}
+                                </select>
                             </div>
+                        )}
+
+                        <label>Seleccione Mesa</label>
+                        <div className="selection-grid">
+                            {mesasDisponibles.map(mesa => {
+                                const isSelected = String(formData.mesa_id) === String(mesa.id);
+                                const isReserved = mesa.reservada;
+                                return (
+                                    <div
+                                        key={mesa.id}
+                                        className={`lab-card selectable-card ${isSelected ? 'card-active' : ''}`}
+                                        style={{ opacity: isReserved ? 0.5 : 1, cursor: isReserved ? 'not-allowed' : 'pointer' }}
+                                        onClick={() => !isReserved && setFormData({ ...formData, mesa_id: mesa.id })}
+                                    >
+                                        <h4>{mesa.nombre}</h4>
+                                        <p>{mesa.ubicacion}</p>
+                                        <p>{mesa.capacidad} pax</p>
+                                        {isReserved && <span style={{ color: 'red' }}>Reservada</span>}
+                                    </div>
+                                )
+                            })}
                         </div>
 
-                        <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                            <label>Seleccione Mesa</label>
-                            {mesasDisponibles.length === 0 && (
-                                <p className="text-muted" style={{ marginTop: 'var(--spacing-sm)' }}>No hay mesas disponibles para este turno.</p>
-                            )}
-
-                            {mesasDisponibles.length > 0 && (
-                                <div style={{ margin: '8px 0 var(--spacing-sm) 0' }}>
-                                    <label style={{ fontSize: '12px', marginRight: '8px' }}>Filtrar por zona</label>
-                                    <select
-                                        className="lab-input"
-                                        value={zonaFiltro}
-                                        onChange={e => setZonaFiltro(e.target.value)}
-                                        style={{ maxWidth: '240px', display: 'inline-block' }}
-                                    >
-                                        <option value="">Todas</option>
-                                        {[...new Set(mesasDisponibles.map(m => (m.zona || m.ubicacionmesa || '').toLowerCase()))]
-                                            .filter(z => z)
-                                            .map(z => (
-                                                <option key={z} value={z}>{z}</option>
-                                            ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className="selection-grid">
-                                {mesasDisponibles
-                                    .filter(m => !zonaFiltro || (m.zona || m.ubicacionmesa || '').toLowerCase() === zonaFiltro)
-                                    .map(mesa => {
-                                        const isSelected = String(formData.mesa) === String(mesa.idmesa);
-                                        const isReserved = Boolean(mesa.reservada);
-                                        const disabledStyle = isReserved ? { opacity: 0.45, pointerEvents: 'none', border: '1px dashed var(--color-border)' } : {};
-                                        return (
-                                            <div
-                                                key={mesa.idmesa}
-                                                className={`lab-card selectable-card ${isSelected ? 'card-active' : ''}`}
-                                                style={{ cursor: isReserved ? 'not-allowed' : 'pointer', padding: 'var(--spacing-md)', ...disabledStyle }}
-                                                onClick={() => {
-                                                    if (isReserved) return;
-                                                    setFormData({ ...formData, mesa: mesa.idmesa });
-                                                }}
-                                            >
-                                                <p className="menu-meta">Mesa {mesa.codigoinventario || mesa.nombremessa}</p>
-                                                <h4 style={{ marginBottom: 'var(--spacing-xs)' }}>{mesa.nombremessa}</h4>
-                                                <p className="text-muted" style={{ margin: 0 }}>{mesa.zona || mesa.ubicacionmesa}</p>
-                                                <p style={{ margin: '4px 0', fontWeight: '600' }}>{(mesa.sillas || mesa.cantidadsillas)} sillas</p>
-                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                                    <span className="pill" style={{ background: 'var(--color-bg-soft)', textTransform: 'capitalize' }}>{mesa.tipo || 'general'}</span>
-                                                    {isReserved && <span className="pill" style={{ background: '#ffe3e3', color: '#c0392b' }}>Reservada</span>}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                            </div>
-                        </div>
-
-                        <div className="actions-inline">
+                        <div className="actions-inline" style={{ marginTop: '20px' }}>
                             <button className="btn-lab" onClick={() => setStep(3)}>Atrás</button>
-                            <button className="btn-lab btn-lab-primary" onClick={handleSubmit}>
-                                Confirmar Reserva
-                            </button>
+                            <button className="btn-lab btn-lab-primary" onClick={handleSubmit}>Confirmar</button>
                         </div>
                     </div>
                 )}

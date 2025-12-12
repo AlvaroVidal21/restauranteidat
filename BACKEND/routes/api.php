@@ -18,7 +18,7 @@ Route::put('/platos/{id}', [PlatoController::class, 'update']); // Actualizar
 
 // RUTAS PARA EXPERIENCIAS
 Route::get('/experiencias', function () {
-    return \Illuminate\Support\Facades\DB::table('experiencias')->where('estado', 1)->get();
+    return \Illuminate\Support\Facades\DB::table('experiencias')->where('activo', 1)->get();
 });
 
 // RUTAS PARA AUTH

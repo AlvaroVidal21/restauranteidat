@@ -20,7 +20,7 @@ export const Clienteapi = () => {
       });
   }, []);
 
-  const eliminarCliente = async (idcliente) => {
+  const eliminarCliente = async (id) => {
     Swal.fire({
       title: '¿Confirmar eliminación?',
       text: 'Esta acción no se puede deshacer.',
@@ -33,11 +33,11 @@ export const Clienteapi = () => {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const response = await fetch(`http://127.0.0.1:8000/api/clientes/${idcliente}`, {
+          const response = await fetch(`http://127.0.0.1:8000/api/clientes/${id}`, {
             method: 'DELETE',
           });
           if (response.ok) {
-            setCliente(prev => prev.filter(c => c.idcliente !== idcliente));
+            setCliente(prev => prev.filter(c => c.id !== id));
             Swal.fire('Eliminado', 'El cliente ha sido eliminado correctamente.', 'success');
           } else {
             Swal.fire('Error', 'No se pudo eliminar el cliente.', 'error');
@@ -94,7 +94,7 @@ export const Clienteapi = () => {
             <tbody>
               {cliente.length > 0 ? (
                 cliente.map((objcliente, index) => (
-                  <tr key={objcliente.idcliente}>
+                  <tr key={objcliente.id}>
                     <td style={{ color: 'var(--color-text-muted)' }}>{index + 1}</td>
                     <td style={{ fontWeight: '500' }}>{objcliente.nombres}</td>
                     <td>{objcliente.dni}</td>
@@ -103,13 +103,13 @@ export const Clienteapi = () => {
                     <td>
                       <button
                         className="btn-lab btn-lab-sm"
-                        onClick={() => navigate(`/editarcliente/${objcliente.idcliente}`)}
+                        onClick={() => navigate(`/editarcliente/${objcliente.id}`)}
                       >
                         Editar
                       </button>
                       <button
                         className="btn-lab btn-lab-sm btn-lab-danger"
-                        onClick={() => eliminarCliente(objcliente.idcliente)}
+                        onClick={() => eliminarCliente(objcliente.id)}
                       >
                         Eliminar
                       </button>

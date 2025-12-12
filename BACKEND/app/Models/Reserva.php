@@ -6,56 +6,33 @@ use Illuminate\Database\Eloquent\Model;
 
 class Reserva extends Model
 {
-    protected $table = 'reserva';
-    protected $primaryKey = 'idreserva';
-    public $timestamps = false; // Assuming no created_at/updated_at in migration
+    protected $table = 'reservas';
 
     protected $fillable = [
-        'cliente',
-        'mesa',
-        'plato_id',
-        'experiencia_id',
-        'drink_id',
-        'drink_name',
-        'fechareserva',
-        'horainicio',
-        'horafin',
-        'cantidadpersonas',
-        'opcionales',
-        'opcionales_nombres',
-        'extras',
+        'cliente_id',
+        'mesa_id',
+        'fecha',
+        'hora_inicio',
+        'hora_fin',
+        'cantidad_personas',
         'motivo',
-        'tipopago',
-        'fechasistema',
-        'usuario',
-        'estadoreserva'
+        'estado',
+        'detalles_consumo',
+        'total'
     ];
 
     protected $casts = [
-        'opcionales' => 'array',
-        'opcionales_nombres' => 'array',
-        'extras' => 'array',
+        'detalles_consumo' => 'array',
+        'fecha' => 'date',
     ];
 
-    public function clienteInfo()
+    public function cliente()
     {
-        return $this->belongsTo(Cliente::class, 'cliente', 'idcliente');
+        return $this->belongsTo(Cliente::class);
     }
 
-    public function mesaInfo()
+    public function mesa()
     {
-        return $this->belongsTo(Mesa::class, 'mesa', 'idmesa');
-    }
-
-    public function platoInfo()
-    {
-        return $this->belongsTo(Plato::class, 'plato_id', 'idplato');
-    }
-
-    public function experienciaInfo()
-    {
-        // Assuming you create an Experiencia model. If not, I can't relate it easily unless I create one.
-        // I'll create a simple Experiencia model next.
-        return $this->belongsTo(Experiencia::class, 'experiencia_id', 'idexperiencia');
+        return $this->belongsTo(Mesa::class);
     }
 }
