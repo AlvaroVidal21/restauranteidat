@@ -18,7 +18,7 @@ const MisReservas = () => {
 
     const load = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/reservas'); // Updated endpoint if needed, or stick to listareservas if defined in api.php
+        const response = await fetch('http://127.0.0.1:8000/api/listareservas');
         // Assuming the new controller uses standard resources or similar.
         // If the user's routes are "api/reservas", let's use that.
         // Actually, previous code used "listareservas". I should probably check routes, but standard REST is "reservas".

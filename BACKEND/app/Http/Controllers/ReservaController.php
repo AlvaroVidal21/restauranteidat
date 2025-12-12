@@ -83,10 +83,16 @@ class ReservaController extends Controller
             ->where('estado', '!=', 'cancelada')
             ->pluck('mesa_id');
 
-        // Filter tables compatible with group size
-        $candidatas = Mesa::where('capacidad', '>=', $request->cantidad_personas)
-            ->where('estado', '!=', 'mantenimiento')
-            ->get();
+        $cantidadPersonas = $request->cantidad_personas;
+
+        // Filtrar mesas por capacidad exacta o con 1 silla adicional maximo
+        // Ejemplo: 2 personas = mesas de 2 o 3 sillas
+        $query = Mesa::where('estado', '!=', 'mantenimiento')
+            ->where('capacidad', '>=', $cantidadPersonas)
+            ->where('capacidad', '<=', $cantidadPersonas + 1)
+            ->orderBy('capacidad', 'asc');
+        
+        $candidatas = $query->get();
 
         // Mark them as reserved or available
         $result = $candidatas->map(function ($mesa) use ($mesasOcupadasIds) {
@@ -119,5 +125,21 @@ class ReservaController extends Controller
         if (!$reserva) return response()->json(['message' => 'No encontrada'], 404);
         $reserva->delete();
         return response()->json(['message' => 'Eliminada']);
+    }
+
+    // Actualizar estado de una reserva (pendiente, confirmada, cancelada, atendida)
+    public function updateStatus(Request $request, $id)
+    {
+        $reserva = Reserva::find($id);
+        if (!$reserva) return response()->json(['message' => 'No encontrada'], 404);
+
+        $request->validate([
+            'estado' => 'required|string'
+        ]);
+
+        $reserva->estado = $request->estado;
+        $reserva->save();
+
+        return response()->json(['message' => 'Estado actualizado', 'data' => $reserva]);
     }
 }

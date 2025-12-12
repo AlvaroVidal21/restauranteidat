@@ -245,6 +245,14 @@ const Reservar = () => {
     };
 
     const handleSubmit = async () => {
+        // Check if user is admin
+        const isAdmin = user?.dni === 'admin' || user?.dni === '00000000' || user?.id === 1;
+
+        if (!formData.experiencia_id) {
+            Swal.fire('Selecciona una experiencia', 'Debes elegir una experiencia antes de continuar.', 'warning');
+            return;
+        }
+
         if (!formData.mesa_id) {
             Swal.fire('Selecciona una mesa', 'Debes elegir una mesa antes de confirmar.', 'warning');
             return;
@@ -252,9 +260,18 @@ const Reservar = () => {
 
         let finalClienteId = formData.cliente_id;
 
-        if (user?.dni === 'admin') {
+        // Admin MUST select a client - cannot reserve for themselves
+        if (isAdmin) {
             if (!formData.cliente_id) {
-                Swal.fire('Seleccione cliente', 'El administrador debe reservar para un cliente registrado.', 'warning');
+                Swal.fire('Seleccione cliente', 'El administrador debe reservar para un cliente registrado. No puede reservar para sí mismo.', 'error');
+                return;
+            }
+            finalClienteId = formData.cliente_id;
+        } else {
+            // For regular users, use their own ID
+            finalClienteId = user?.id || user?.idcliente;
+            if (!finalClienteId) {
+                Swal.fire('Error', 'No se pudo identificar al cliente. Por favor inicie sesión nuevamente.', 'error');
                 return;
             }
         }
@@ -377,7 +394,8 @@ const Reservar = () => {
                                         onClick={() => handleSelectDrink(drink)}
                                     >
                                         <h4>{drink.nombre}</h4>
-                                        <p style={{ fontSize: '12px' }}>{drink.descripcion}</p>
+                                        <p style={{ fontSize: '12px', marginBottom: '5px' }}>{drink.descripcion}</p>
+                                        <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>${parseFloat(drink.precio || 0).toFixed(2)}</span>
                                     </div>
                                 )
                             })}
@@ -425,6 +443,31 @@ const Reservar = () => {
                                     );
                                 })}
                         </div>
+                        {/* Summary of Additionals */}
+                        {formData.opcionales.length > 0 && (
+                            <div className="summary-box" style={{ marginTop: 'var(--spacing-lg)', borderTop: '1px solid var(--color-border)', paddingTop: '15px' }}>
+                                <h4 style={{ marginBottom: '10px' }}>Adicionales seleccionados:</h4>
+                                <ul style={{ listStyle: 'none', padding: 0, fontSize: '14px' }}>
+                                    {formData.opcionales.map(id => {
+                                        const p = platos.find(pl => pl.id === id);
+                                        return p ? (
+                                            <li key={id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                                <span>{p.nombre}</span>
+                                                <span>${parseFloat(p.precio).toFixed(2)}</span>
+                                            </li>
+                                        ) : null;
+                                    })}
+                                </ul>
+                                <div style={{ textAlign: 'right', fontWeight: 'bold', marginTop: '10px', borderTop: '1px dashed #ccc', paddingTop: '5px' }}>
+                                    Total Adicionales: $
+                                    {formData.opcionales.reduce((acc, id) => {
+                                        const p = platos.find(pl => pl.id === id);
+                                        return acc + (p ? parseFloat(p.precio) : 0);
+                                    }, 0).toFixed(2)}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="actions-inline" style={{ marginTop: 'var(--spacing-lg)' }}>
                             <button className="btn-lab" onClick={() => setStep(1)}>Atrás</button>
                             <button className="btn-lab btn-lab-primary" onClick={() => setStep(3)}>Continuar</button>
@@ -477,41 +520,115 @@ const Reservar = () => {
 
                 {/* STEP 4: Confirmar */}
                 {step === 4 && (
-                    <div className="form-shell" style={{ maxWidth: '540px', margin: '0 auto' }}>
-                        {user?.dni === 'admin' && (
-                            <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                                <label>Cliente</label>
-                                <select className="lab-input" value={formData.cliente_id} onChange={(e) => setFormData({ ...formData, cliente_id: e.target.value })}>
-                                    <option value="">-- Seleccionar --</option>
-                                    {clientesList.map(c => <option key={c.id || c.idcliente} value={c.id || c.idcliente}>{c.nombres}</option>)}
+                    <div className="form-shell" style={{ maxWidth: '640px', margin: '0 auto' }}>
+                        {/* COST SUMMARY */}
+                        <div className="summary-box" style={{ marginBottom: '20px', padding: '15px', border: '1px solid var(--color-border)', borderRadius: '8px' }}>
+                            <h3 style={{ marginBottom: '10px', fontSize: '1.1rem', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Resumen de Reserva</h3>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                <span>{formData.selectedItemName}</span>
+                                <span>${parseFloat(formData.selectedItemPrice).toFixed(2)}</span>
+                            </div>
+                            {formData.drinkName && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                    <span>{formData.drinkName} (Bebida)</span>
+                                    <span style={{ color: 'var(--color-primary)' }}>Incluido</span>
+                                </div>
+                            )}
+                            {formData.opcionales.length > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                    <span>Extras ({formData.opcionales.length})</span>
+                                    <span>
+                                        ${formData.opcionales.reduce((acc, id) => {
+                                            const p = platos.find(pl => pl.id === id);
+                                            return acc + (p ? parseFloat(p.precio) : 0);
+                                        }, 0).toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                <span>Total Estimado:</span>
+                                <span>
+                                    ${(
+                                        parseFloat(formData.selectedItemPrice) +
+                                        formData.opcionales.reduce((acc, id) => {
+                                            const p = platos.find(pl => pl.id === id);
+                                            return acc + (p ? parseFloat(p.precio) : 0);
+                                        }, 0)
+                                    ).toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
+
+
+                        {(user?.dni === 'admin' || user?.dni === '00000000' || user?.id === 1) && (
+                            <div style={{ marginBottom: 'var(--spacing-md)', padding: '15px', background: '#f9f9f9', border: '1px solid #eee', borderRadius: '8px' }}>
+                                <label style={{ color: 'var(--color-gold)', fontWeight: 'bold' }}>Reservar para el Cliente (Admin)</label>
+                                <select
+                                    className="lab-input"
+                                    style={{ border: !formData.cliente_id ? '2px solid red' : '1px solid #ddd' }}
+                                    value={formData.cliente_id}
+                                    onChange={(e) => setFormData({ ...formData, cliente_id: e.target.value })}
+                                >
+                                    <option value="">-- SELECCIONAR CLIENTE OBLIGATORIO --</option>
+                                    {clientesList.map(c => <option key={c.id || c.idcliente} value={c.id || c.idcliente}>{c.nombres} - {c.dni}</option>)}
                                 </select>
+                                {!formData.cliente_id && <small style={{ color: 'red' }}>Debe seleccionar un cliente.</small>}
                             </div>
                         )}
 
-                        <label>Seleccione Mesa</label>
-                        <div className="selection-grid">
-                            {mesasDisponibles.map(mesa => {
-                                const isSelected = String(formData.mesa_id) === String(mesa.id);
-                                const isReserved = mesa.reservada;
-                                return (
-                                    <div
-                                        key={mesa.id}
-                                        className={`lab-card selectable-card ${isSelected ? 'card-active' : ''}`}
-                                        style={{ opacity: isReserved ? 0.5 : 1, cursor: isReserved ? 'not-allowed' : 'pointer' }}
-                                        onClick={() => !isReserved && setFormData({ ...formData, mesa_id: mesa.id })}
-                                    >
-                                        <h4>{mesa.nombre}</h4>
-                                        <p>{mesa.ubicacion}</p>
-                                        <p>{mesa.capacidad} pax</p>
-                                        {isReserved && <span style={{ color: 'red' }}>Reservada</span>}
-                                    </div>
-                                )
-                            })}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <label style={{ margin: 0 }}>Seleccione Mesa</label>
+                            {mesasDisponibles.length > 0 && (
+                                <select
+                                    className="lab-input"
+                                    style={{ width: 'auto', padding: '5px 10px', fontSize: '14px', marginBottom: 0 }}
+                                    value={zonaFiltro}
+                                    onChange={(e) => setZonaFiltro(e.target.value)}
+                                >
+                                    <option value="">Todas las zonas ({mesasDisponibles.length})</option>
+                                    {[...new Set(mesasDisponibles.map(m => m.ubicacion))].map(z => <option key={z} value={z}>{z}</option>)}
+                                </select>
+                            )}
                         </div>
+
+                        <div className="selection-grid">
+                            {mesasDisponibles
+                                .filter(m => zonaFiltro ? m.ubicacion === zonaFiltro : true)
+                                .map(mesa => {
+                                    const isSelected = String(formData.mesa_id) === String(mesa.id);
+                                    const isReserved = mesa.reservada;
+                                    // Visual cue if table is 'too big' for selection? Strict check?
+                                    // For now just show capacity.
+                                    return (
+                                        <div
+                                            key={mesa.id}
+                                            className={`lab-card selectable-card ${isSelected ? 'card-active' : ''}`}
+                                            style={{
+                                                opacity: isReserved ? 0.6 : 1,
+                                                cursor: isReserved ? 'not-allowed' : 'pointer',
+                                                border: isReserved ? '1px dashed #ccc' : undefined,
+                                                background: isReserved ? '#f5f5f5' : undefined
+                                            }}
+                                            onClick={() => !isReserved && setFormData({ ...formData, mesa_id: mesa.id })}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <h4 style={{ marginBottom: '5px' }}>{mesa.nombre}</h4>
+                                                {isReserved && <span style={{ fontSize: '10px', background: '#ffdddd', color: 'red', padding: '2px 6px', borderRadius: '4px', height: 'fit-content' }}>RESERVADA</span>}
+                                            </div>
+                                            <p style={{ marginBottom: '0', fontSize: '13px' }}>{mesa.ubicacion}</p>
+                                            <p style={{ fontWeight: 'bold', color: 'var(--color-gold)' }}>{mesa.capacidad} Sillas</p>
+                                        </div>
+                                    )
+                                })}
+                        </div>
+
+                        {mesasDisponibles.filter(m => zonaFiltro ? m.ubicacion === zonaFiltro : true).length === 0 && (
+                            <p className="text-muted text-center" style={{ padding: '20px' }}>No hay mesas disponibles en esta zona para la capacidad seleccionada.</p>
+                        )}
 
                         <div className="actions-inline" style={{ marginTop: '20px' }}>
                             <button className="btn-lab" onClick={() => setStep(3)}>Atrás</button>
-                            <button className="btn-lab btn-lab-primary" onClick={handleSubmit}>Confirmar</button>
+                            <button className="btn-lab btn-lab-primary" onClick={handleSubmit}>Confirmar Reserva</button>
                         </div>
                     </div>
                 )}
