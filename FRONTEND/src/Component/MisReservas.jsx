@@ -33,12 +33,16 @@ const MisReservas = () => {
   }, [user]);
 
   const computeStatus = (reserva) => {
+    const flag = Number(reserva?.estadoreserva);
+    if (flag === 2) return 'Atendido';
+    if (flag === 1) return 'Pendiente';
+
     const now = new Date();
     const dateStr = reserva.fechareserva || '';
     const timeStr = reserva.horainicio || '00:00';
     const date = new Date(`${dateStr}T${timeStr}`);
     if (isNaN(date)) return 'Pendiente';
-    return date >= now ? 'Pendiente' : 'Concluida';
+    return date >= now ? 'Pendiente' : 'Atendido';
   };
 
   const stats = useMemo(() => {

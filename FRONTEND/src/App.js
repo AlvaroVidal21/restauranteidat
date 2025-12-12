@@ -16,6 +16,7 @@ import Platoapilistar from './Component/Platoapilistar';
 import EditarCliente from './Component/EditarCliente';
 import MisReservas from './Component/MisReservas';
 import Experiencias from './Component/Experiencias';
+import GestionMesas from './Component/GestionMesas';
 
 export const App = () => {
 	const [user, setUser] = useState(null);
@@ -62,6 +63,7 @@ export const App = () => {
 				<Route path="/editarplato/:id" element={<ProtectedRoute><EditarPlato /></ProtectedRoute>} />
 				<Route path="/clientes" element={<ProtectedRoute><Clienteapi /></ProtectedRoute>} />
 				<Route path="/editarcliente/:id" element={<ProtectedRoute><EditarCliente /></ProtectedRoute>} />
+				<Route path="/mesas" element={<ProtectedRoute><GestionMesas /></ProtectedRoute>} />
 			</Routes>
 			<Footer />
 		</Router>

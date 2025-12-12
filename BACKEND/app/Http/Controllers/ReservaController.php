@@ -37,7 +37,7 @@ class ReservaController extends Controller
             return response()->json(['message' => 'Debe seleccionar un plato o experiencia'], 422);
         }
 
-        // Check availability
+
         $exists = Reserva::where('mesa', $request->mesa)
             ->where('fechareserva', $request->fechareserva)
             ->where(function ($query) use ($request) {
@@ -62,7 +62,7 @@ class ReservaController extends Controller
         $reserva->drink_id = $request->drink_id ?? $request->drinkId;
         $reserva->drink_name = $request->drink_name ?? $request->drinkName;
         $reserva->opcionales = $request->opcionales ?? $request->opcionalesIds;
-        // Extras can arrive explicitly or be inferred from optional names for display in el dashboard
+
         $reserva->opcionales_nombres = $request->opcionales_nombres ?? $request->opcionalesNombres;
         $reserva->extras = $request->extras ?? ($request->opcionales_nombres ?? $request->opcionalesNombres);
         $reserva->fechareserva = $request->fechareserva;
@@ -72,8 +72,8 @@ class ReservaController extends Controller
         $reserva->motivo = $request->motivo ?? 'Reserva Web';
         $reserva->tipopago = $request->tipopago ?? 'Pendiente';
         $reserva->fechasistema = date('Y-m-d');
-        $reserva->usuario = 1; // Default user
-        $reserva->estadoreserva = 1; // 1: Active
+        $reserva->usuario = 1;
+        $reserva->estadoreserva = 1;
         $reserva->save();
 
         return response()->json(['message' => 'Reserva creada con éxito', 'data' => $reserva], 201);
@@ -95,7 +95,7 @@ class ReservaController extends Controller
         $experienciaId = $request->experiencia_id;
         $zona = $request->zona;
 
-        // Assume 2 hours per turno
+        // Meterle 2 horas
         $horaFin = date('H:i', strtotime($hora) + 7200);
 
         $reservedTableIds = Reserva::where('fechareserva', $fecha)
@@ -105,13 +105,13 @@ class ReservaController extends Controller
             })
             ->pluck('mesa');
 
-        // Base query: only mesas marked disponibles (or null = legacy)
+
         $mesasQuery = Mesa::query()
             ->where(function ($q) {
                 $q->whereNull('disponible')->orWhere('disponible', true);
             });
 
-        // Infer tipo/zona según personas y experiencia
+
         $expNombre = null;
         if (!empty($experienciaId)) {
             $expNombre = DB::table('experiencias')->where('idexperiencia', $experienciaId)->value('nombre');
@@ -119,18 +119,18 @@ class ReservaController extends Controller
 
         $expEsRomantica = $expNombre && str_contains(strtolower($expNombre), 'romant');
 
-        // Use COALESCE to support legacy 'cantidadsillas'
+
         $capacidadExpr = 'COALESCE(sillas, cantidadsillas)';
 
         if ($personas <= 1) {
-            // Solitario: mesas de 1 silla
+
             $mesasQuery
                 ->where(function ($q) {
                     $q->where('tipo', 'solitario')->orWhereNull('tipo');
                 })
                 ->whereRaw($capacidadExpr . ' = ?', [1]);
         } elseif ($personas === 2) {
-            // Pareja o romántica: solo mesas de 2 sillas etiquetadas como pareja/romantica
+
             $mesasQuery
                 ->where(function ($q) {
                     $q->where('tipo', 'pareja')->orWhere('tipo', 'romantica');
@@ -172,6 +172,26 @@ class ReservaController extends Controller
         return response()->json(['message' => 'Reserva no encontrada'], 404);
     }
 
+    public function updateStatus(Request $request, $id)
+    {
+        $reserva = Reserva::find($id);
+        if (!$reserva) {
+            return response()->json(['message' => 'Reserva no encontrada'], 404);
+        }
+
+        $request->validate([
+            'estadoreserva' => 'required|integer|in:1,2'
+        ]);
+
+        $reserva->estadoreserva = $request->estadoreserva;
+        $reserva->save();
+
+        return response()->json([
+            'message' => 'Estado actualizado',
+            'data' => $reserva
+        ], 200);
+    }
+
     public function update(Request $request, $id)
     {
         $reserva = Reserva::find($id);
@@ -187,7 +207,7 @@ class ReservaController extends Controller
             'mesa' => 'required'
         ]);
 
-        // Check availability excluding the current reservation
+
         $exists = Reserva::where('mesa', $request->mesa)
             ->where('fechareserva', $request->fechareserva)
             ->where('idreserva', '!=', $id)

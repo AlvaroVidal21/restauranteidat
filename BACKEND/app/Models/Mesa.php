@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class Mesa extends Model
 {
     protected $table = 'mesa';
+    protected $primaryKey = 'idmesa';
+    public $timestamps = false; // Assuming typical setup in this project based on Reserva model
+
 
     protected $fillable = [
         'codigoinventario',

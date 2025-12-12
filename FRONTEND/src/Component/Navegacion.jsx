@@ -25,6 +25,7 @@ export const Navegacion = ({ isAdmin, user, onLogout }) => {
             <li><Link to="/dashboard" className={`lab-nav-link ${isActive('/dashboard')}`}>Dashboard</Link></li>
             <li><Link to="/listarplatos" className={`lab-nav-link ${isActive('/listarplatos')}`}>Platos</Link></li>
             <li><Link to="/clientes" className={`lab-nav-link ${isActive('/clientes')}`}>Clientes</Link></li>
+            <li><Link to="/mesas" className={`lab-nav-link ${isActive('/mesas')}`}>Mesas</Link></li>
             <li><button onClick={handleLogout} className="btn-lab btn-lab-danger admin-logout-btn">Admin Salir</button></li>
           </>
         ) : (

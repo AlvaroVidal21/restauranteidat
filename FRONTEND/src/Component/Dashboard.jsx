@@ -178,12 +178,57 @@ const Dashboard = () => {
     };
 
     const computeStatus = (reserva) => {
+        const flag = Number(reserva?.estadoreserva);
+        if (flag === 2) return 'Atendido';
+        if (flag === 1) return 'Pendiente';
+
         const now = new Date();
         const dateStr = reserva.fechareserva || '';
         const timeStr = reserva.horainicio || '00:00';
         const date = new Date(`${dateStr}T${timeStr}`);
         if (isNaN(date)) return 'Pendiente';
-        return date >= now ? 'Pendiente' : 'Concluida';
+        return date >= now ? 'Pendiente' : 'Atendido';
+    };
+
+    const markAsAttended = async (reserva) => {
+        const result = await Swal.fire({
+            title: 'Marcar como atendida',
+            text: 'Confirmas que la reserva fue atendida?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, marcar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const resp = await fetch(`http://127.0.0.1:8000/api/reservas/${reserva.idreserva}/estado`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ estadoreserva: 2 })
+            });
+
+            if (!resp.ok) {
+                let message = 'No se pudo actualizar el estado.';
+                try {
+                    const err = await resp.json();
+                    message = err.message || message;
+                } catch (e) {
+                    message = `Error ${resp.status}`;
+                }
+                Swal.fire('Error', message, 'error');
+                return;
+            }
+
+            const payload = await resp.json();
+            const updated = payload?.data || reserva;
+            setReservas(prev => prev.map(r => r.idreserva === reserva.idreserva ? { ...r, ...updated, estadoreserva: 2 } : r));
+            Swal.fire('Listo', 'Reserva marcada como atendida.', 'success');
+        } catch (error) {
+            console.error(error);
+            Swal.fire('Error', 'No se pudo actualizar el estado.', 'error');
+        }
     };
 
     const clean = (text) => (text || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu, '');
@@ -319,40 +364,49 @@ const Dashboard = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredReservas.map(reserva => (
-                                <tr key={reserva.idreserva}>
-                                    <td>{reserva.idreserva}</td>
-                                    <td>{reserva.cliente_info ? reserva.cliente_info.nombres : 'N/A'}</td>
-                                    <td>{reserva.mesa_info ? reserva.mesa_info.nombremessa : 'N/A'}</td>
-                                    <td>
-                                        {reserva.plato_info
-                                            ? `Plato: ${reserva.plato_info.nombreplato}`
-                                            : (reserva.experiencia_info ? `Exp: ${reserva.experiencia_info.nombre}` : 'N/A')}
-                                    </td>
-                                    <td>{reserva.fechareserva}</td>
-                                    <td>{reserva.horainicio} - {reserva.horafin}</td>
-                                    <td>
-                                        <span className={`status-chip ${computeStatus(reserva) === 'Pendiente' ? 'status-pending' : 'status-done'}`}>
-                                            {computeStatus(reserva)}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div className="action-stack">
-                                            <div className="action-row">
-                                                <button className="action-pill action-pill-view" onClick={() => openView(reserva)}>
-                                                    Ver
-                                                </button>
-                                                <button className="action-pill action-pill-edit" onClick={() => openDetail(reserva)}>
-                                                    Editar
+                            {filteredReservas.map(reserva => {
+                                const statusLabel = computeStatus(reserva);
+                                const isAtendido = statusLabel === 'Atendido';
+                                return (
+                                    <tr key={reserva.idreserva}>
+                                        <td>{reserva.idreserva}</td>
+                                        <td>{reserva.cliente_info ? reserva.cliente_info.nombres : 'N/A'}</td>
+                                        <td>{reserva.mesa_info ? reserva.mesa_info.nombremessa : 'N/A'}</td>
+                                        <td>
+                                            {reserva.plato_info
+                                                ? `Plato: ${reserva.plato_info.nombreplato}`
+                                                : (reserva.experiencia_info ? `Exp: ${reserva.experiencia_info.nombre}` : 'N/A')}
+                                        </td>
+                                        <td>{reserva.fechareserva}</td>
+                                        <td>{reserva.horainicio} - {reserva.horafin}</td>
+                                        <td>
+                                            <span className={`status-chip ${statusLabel === 'Pendiente' ? 'status-pending' : 'status-done'}`}>
+                                                {statusLabel}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div className="action-stack">
+                                                <div className="action-row">
+                                                    <button className="action-pill action-pill-view" onClick={() => openView(reserva)}>
+                                                        Ver
+                                                    </button>
+                                                    <button className="action-pill action-pill-edit" onClick={() => openDetail(reserva)}>
+                                                        Editar
+                                                    </button>
+                                                </div>
+                                                {!isAtendido && (
+                                                    <button className="action-pill action-pill-edit" onClick={() => markAsAttended(reserva)}>
+                                                        Marcar atendido
+                                                    </button>
+                                                )}
+                                                <button className="action-pill action-pill-cancel" onClick={() => deleteReservation(reserva.idreserva)}>
+                                                    Cancelar
                                                 </button>
                                             </div>
-                                            <button className="action-pill action-pill-cancel" onClick={() => deleteReservation(reserva.idreserva)}>
-                                                Cancelar
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -479,7 +533,7 @@ const Dashboard = () => {
                                 </div>
                                 <div>
                                     <span className="menu-meta">Estado</span>
-                                    <p style={{ margin: 0 }}>{viewReserva.estadoreserva === 1 ? 'Activa' : 'Inactiva'}</p>
+                                    <p style={{ margin: 0 }}>{computeStatus(viewReserva)}</p>
                                 </div>
                             </div>
                         </div>

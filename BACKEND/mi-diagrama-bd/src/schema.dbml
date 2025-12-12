@@ -1,0 +1,26 @@
+Table users {
+  id int [pk, increment]
+  name varchar
+  email varchar [unique]
+  created_at datetime
+}
+
+Table posts {
+  id int [pk, increment]
+  user_id int [ref: > users.id]
+  title varchar
+  content text
+  created_at datetime
+}
+
+Table comments {
+  id int [pk, increment]
+  post_id int [ref: > posts.id]
+  user_id int [ref: > users.id]
+  content text
+  created_at datetime
+}
+
+Ref: posts.user_id > users.id
+Ref: comments.post_id > posts.id
+Ref: comments.user_id > users.id

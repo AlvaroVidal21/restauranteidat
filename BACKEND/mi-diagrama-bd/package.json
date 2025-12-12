@@ -1,0 +1,31 @@
+{
+  "name": "mi-diagrama-bd",
+  "version": "1.0.0",
+  "description": "Proyecto para gestionar un diagrama de base de datos en formato DBML.",
+  "main": "src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "typescript": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tu_usuario/mi-diagrama-bd.git"
+  },
+  "keywords": [
+    "dbml",
+    "database",
+    "typescript"
+  ],
+  "author": "Tu Nombre",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tu_usuario/mi-diagrama-bd/issues"
+  },
+  "homepage": "https://github.com/tu_usuario/mi-diagrama-bd#readme"
+}

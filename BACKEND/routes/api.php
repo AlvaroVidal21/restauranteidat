@@ -26,7 +26,12 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 // RUTAS PARA LA CLASE MESAS
+// RUTAS PARA LA CLASE MESAS
 Route::get('/mesas', [MesaController::class, 'index']);
+Route::post('/mesas', [MesaController::class, 'store']);
+Route::get('/mesas/{id}', [MesaController::class, 'show']);
+Route::put('/mesas/{id}', [MesaController::class, 'update']);
+Route::delete('/mesas/{id}', [MesaController::class, 'destroy']);
 
 // RUTAS PARA LA CLASE CLIENTES
 Route::get('/clientes', [ClienteController::class, 'index']);
@@ -41,6 +46,7 @@ Route::get('/listareservas', [ReservaController::class, 'index']);
 Route::post('/reservas', [ReservaController::class, 'store']);
 Route::post('/check-availability', [ReservaController::class, 'checkAvailability']);
 Route::put('/reservas/{id}', [ReservaController::class, 'update']);
+Route::patch('/reservas/{id}/estado', [ReservaController::class, 'updateStatus']);
 Route::delete('/reservas/{id}', [ReservaController::class, 'destroy']);
 
 Route::get('/test', function () {
