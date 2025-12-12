@@ -47,12 +47,20 @@ const MisReservas = () => {
 
     // Fallback date check
     const now = new Date();
-    const dateStr = reserva.fecha || '';
+    const rawDateStr = reserva.fecha || '';
+    const dateStr = (rawDateStr || '').slice(0, 10);
     const timeStr = reserva.hora_inicio || '00:00';
     const date = new Date(`${dateStr}T${timeStr}`);
 
     if (isNaN(date.getTime())) return 'Pendiente'; // Default
     return date >= now ? 'Pendiente' : 'Atendido';
+  };
+
+  const formatDate = (value) => {
+    const raw = (value || '').toString();
+    const short = raw.slice(0, 10);
+    const d = new Date(short);
+    return Number.isNaN(d.getTime()) ? short : d.toLocaleDateString('es-PE');
   };
 
   const stats = useMemo(() => {
@@ -189,7 +197,7 @@ const MisReservas = () => {
                 return (
                   <tr key={reserva.id}>
                     <td style={{ color: 'var(--color-text-muted)' }}>{idx + 1}</td>
-                    <td>{reserva.fecha}</td>
+                    <td>{formatDate(reserva.fecha)}</td>
                     <td>{reserva.hora_inicio} - {reserva.hora_fin}</td>
                     <td>
                       {expName}

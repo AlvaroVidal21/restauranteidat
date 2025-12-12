@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Reserva;
 use App\Models\Mesa;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ReservaController extends Controller
 {
@@ -23,10 +24,18 @@ class ReservaController extends Controller
             'mesa_id' => 'required|exists:mesas,id',
             'fecha' => 'required|date',
             'hora_inicio' => 'required',
-            'hora_fin' => 'required',
+            'hora_fin' => 'nullable',
             'cantidad_personas' => 'required|integer|min:1',
             'detalles_consumo' => 'nullable|array'
         ]);
+
+        $fecha = Carbon::parse($request->fecha)->toDateString();
+        $horaInicio = substr((string) $request->hora_inicio, 0, 5);
+        $inicio = Carbon::createFromFormat('H:i', $horaInicio);
+        $horaFinRaw = $request->hora_fin ? substr((string) $request->hora_fin, 0, 5) : null;
+        $fin = $horaFinRaw ? Carbon::createFromFormat('H:i', $horaFinRaw) : (clone $inicio)->addHours(2);
+        $horaInicioDb = $inicio->format('H:i:s');
+        $horaFinDb = $fin->format('H:i:s');
 
         // Enforce romantic experience rule: if experiencia indicates 'romant' then cantidad_personas must be 2
         $detalles = $request->input('detalles_consumo', []);
@@ -51,29 +60,28 @@ class ReservaController extends Controller
             return response()->json(['message' => 'Las mesas de tipo pareja/romántica solo permiten 2 personas.'], 422);
         }
 
-        // Check availability logic
-        $exists = Reserva::where('mesa_id', $request->mesa_id)
-            ->where('fecha', $request->fecha)
-            ->where(function ($query) use ($request) {
-                $query->whereBetween('hora_inicio', [$request->hora_inicio, $request->hora_fin])
-                      ->orWhereBetween('hora_fin', [$request->hora_inicio, $request->hora_fin])
-                      ->orWhere(function ($q) use ($request) {
-                          $q->where('hora_inicio', '<=', $request->hora_inicio)
-                            ->where('hora_fin', '>=', $request->hora_fin);
-                      });
-            })
-            ->exists();
+        // Check availability logic (REAL overlap) and ignore cancelled reservations.
+        // Overlap condition: existing.start < new.end AND existing.end > new.start
+        $conflict = DB::transaction(function () use ($request, $fecha, $horaInicioDb, $horaFinDb) {
+            return Reserva::where('mesa_id', $request->mesa_id)
+                ->whereDate('fecha', $fecha)
+                ->where('estado', '!=', 'cancelada')
+                ->where('hora_inicio', '<', $horaFinDb)
+                ->where('hora_fin', '>', $horaInicioDb)
+                ->lockForUpdate()
+                ->exists();
+        });
 
-        if ($exists) {
+        if ($conflict) {
             return response()->json(['message' => 'Mesa ocupada en este horario'], 422);
         }
 
         $reserva = Reserva::create([
             'cliente_id' => $request->cliente_id,
             'mesa_id' => $request->mesa_id,
-            'fecha' => $request->fecha,
-            'hora_inicio' => $request->hora_inicio,
-            'hora_fin' => $request->hora_fin,
+            'fecha' => $fecha,
+            'hora_inicio' => $horaInicioDb,
+            'hora_fin' => $horaFinDb,
             'cantidad_personas' => $request->cantidad_personas,
             'motivo' => $request->motivo ?? 'Web',
             'estado' => $request->estado ?? 'pendiente',
@@ -92,12 +100,14 @@ class ReservaController extends Controller
             'cantidad_personas' => 'required|integer',
         ]);
 
-        $horaInicio = $request->hora;
-        // Default 2 hours duration
-        $horaFin = date('H:i', strtotime($horaInicio) + 7200);
+        $fecha = Carbon::parse($request->fecha)->toDateString();
+        $horaInicio = substr((string) $request->hora, 0, 5);
+        $inicio = Carbon::createFromFormat('H:i', $horaInicio);
+        $horaFin = (clone $inicio)->addHours(2)->format('H:i:s');
+        $horaInicioDb = $inicio->format('H:i:s');
 
         // Get IDs of tables reserved during this time slot
-        $mesasOcupadasIds = Reserva::where('fecha', $request->fecha)
+        $mesasOcupadasIds = Reserva::whereDate('fecha', $fecha)
             ->where(function ($query) use ($horaInicio, $horaFin) {
                 // Logic: A reservation overlaps if it starts before our end AND ends after our start
                 $query->where('hora_inicio', '<', $horaFin)
@@ -156,17 +166,22 @@ class ReservaController extends Controller
         }
 
         // If time or mesa changes, check availability excluding current reservation id
-        $fecha = $allowed['fecha'] ?? $reserva->fecha;
-        $horaInicio = $allowed['hora_inicio'] ?? $reserva->hora_inicio;
-        $horaFin = $allowed['hora_fin'] ?? $reserva->hora_fin;
+        $fecha = Carbon::parse($allowed['fecha'] ?? $reserva->fecha)->toDateString();
+        $horaInicio = substr((string) ($allowed['hora_inicio'] ?? $reserva->hora_inicio), 0, 5);
+        $horaFinRaw = ($allowed['hora_fin'] ?? $reserva->hora_fin) ? substr((string) ($allowed['hora_fin'] ?? $reserva->hora_fin), 0, 5) : null;
+        $inicio = Carbon::createFromFormat('H:i', $horaInicio);
+        $fin = $horaFinRaw ? Carbon::createFromFormat('H:i', $horaFinRaw) : (clone $inicio)->addHours(2);
+        $horaInicioDb = $inicio->format('H:i:s');
+        $horaFinDb = $fin->format('H:i:s');
         $mesaIdToCheck = $allowed['mesa_id'] ?? $reserva->mesa_id;
 
         $conflict = Reserva::where('mesa_id', $mesaIdToCheck)
             ->where('id', '!=', $reserva->id)
-            ->where('fecha', $fecha)
-            ->where(function ($query) use ($horaInicio, $horaFin) {
-                $query->where('hora_inicio', '<', $horaFin)
-                      ->where('hora_fin', '>', $horaInicio);
+            ->whereDate('fecha', $fecha)
+            ->where('estado', '!=', 'cancelada')
+            ->where(function ($query) use ($horaInicioDb, $horaFinDb) {
+                $query->where('hora_inicio', '<', $horaFinDb)
+                      ->where('hora_fin', '>', $horaInicioDb);
             })
             ->exists();
 
@@ -174,7 +189,12 @@ class ReservaController extends Controller
             return response()->json(['message' => 'La mesa está ocupada en el horario seleccionado.'], 422);
         }
 
-        $reserva->update($allowed);
+        $reserva->update([
+            ...$allowed,
+            'fecha' => $fecha,
+            'hora_inicio' => $horaInicioDb,
+            'hora_fin' => $horaFinDb,
+        ]);
         return response()->json(['message' => 'Actualizada', 'data' => $reserva]);
     }
 

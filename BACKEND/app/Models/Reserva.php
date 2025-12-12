@@ -23,7 +23,7 @@ class Reserva extends Model
 
     protected $casts = [
         'detalles_consumo' => 'array',
-        'fecha' => 'date',
+        'fecha' => 'date:Y-m-d',
     ];
 
     public function cliente()
